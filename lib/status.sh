@@ -138,6 +138,27 @@ status_versions() {
   else
     log_warn "$unit_path not deployed yet — run 'setup'"
   fi
+
+  log_info ""
+  log_info "--- this checkout ($REPO_ROOT) vs its remote ---"
+  if ! git -C "$REPO_ROOT" rev-parse --is-inside-work-tree >/dev/null 2>&1; then
+    log_skip "not a git checkout — can't check for a newer claudissimo (re-download to get one)"
+  elif ! git -C "$REPO_ROOT" rev-parse --abbrev-ref '@{u}' >/dev/null 2>&1; then
+    log_skip "no upstream configured for this checkout — can't check for a newer claudissimo"
+  else
+    local upstream behind
+    upstream="$(git -C "$REPO_ROOT" rev-parse --abbrev-ref '@{u}')"
+    if git -C "$REPO_ROOT" fetch --quiet 2>/dev/null; then
+      behind="$(git -C "$REPO_ROOT" rev-list --count 'HEAD..@{u}' 2>/dev/null || echo 0)"
+      if [ "$behind" -gt 0 ]; then
+        log_warn "$behind commit(s) behind $upstream — run 'git pull' here, then 'update' to apply"
+      else
+        log_skip "up to date with $upstream"
+      fi
+    else
+      log_warn "couldn't reach $upstream to check for updates (offline?)"
+    fi
+  fi
 }
 
 action_status() {

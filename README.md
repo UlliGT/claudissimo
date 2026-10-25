@@ -46,7 +46,12 @@ curses UI, output stays in your normal scrollback:
    anything.
 2. **Status** — reports, for every project directory and every background
    session: whether it's actually alive, whether it ended up in an unwanted
-   git worktree, and whether the revive service is enabled.
+   git worktree, and whether the revive service is enabled. Also reports
+   versions: claude's, jq/git/curl's (plus whether apt has a pending
+   upgrade for them), whether the two deployed files still match this
+   tool's current version, and whether this checkout itself is behind its
+   git remote (if it has one) — everything `update` would act on, shown
+   without changing anything.
 3. **Update** — refreshes what this host needs to keep running: `claude
    update`, the `jq`/`git`/`curl` packages, and the two deployed files
    (revive script, systemd unit) if this tool's version of them has

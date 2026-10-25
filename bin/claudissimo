@@ -77,10 +77,11 @@ This tool has five actions:
           session: whether it's actually alive, whether it ended up in an
           unwanted git worktree, and whether the revive service is
           enabled. Also reports versions: claude's, jq/git/curl's (plus
-          whether apt has a pending upgrade for them), and whether the
-          two deployed files still match this tool's current version —
-          everything `update` would act on, shown without changing
-          anything.
+          whether apt has a pending upgrade for them), whether the two
+          deployed files still match this tool's current version, and
+          whether this checkout itself is behind its git remote (if it
+          has one) — everything `update` would act on, shown without
+          changing anything.
 
   update  Refreshes what this host needs to keep running: `claude
           update`, the jq/git/curl packages, and the two files setup
