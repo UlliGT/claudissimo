@@ -1,11 +1,13 @@
 # claudissimo
 
-This tiny management tool helps you setup Claude Code background agents on
-an Ubuntu/Debian machine to run permanently. You then remote control them
-from any other device using the Claude app or website. This way, you're able
-to work on code projects on the go while the agents live on e.g. a VM
-somewhere and you do not have to leave your laptop on. Set it up once, and
-sessions survive reboots on their own.
+This tiny tool helps you setup Claude Code background agents and manage
+their projects on an Ubuntu/Debian machine to run permanently. You then
+remote control them from any other device using the Claude app or website.
+This way, you're able to work on code projects on the go while the agents
+live on e.g. a VM somewhere and you do not have to leave your laptop on.
+Set it up once, and sessions survive reboots on their own.
+
+![claudissimo's menu](docs/screenshot.png)
 
 ## Usage
 
@@ -107,8 +109,6 @@ use this check.
   user services, `loginctl` linger, bash, jq, git, curl, claude) works on any
   systemd-based Linux; on other distros, install `jq`/`git`/`curl` yourself
   before running `setup`.
-- Claude Code (`claude`) — `setup` installs it if missing, via the official
-  installer (`curl -fsSL https://claude.ai/install.sh | bash`).
 
 ## Status of this tool
 
