@@ -56,10 +56,7 @@ curses UI, output stays in your normal scrollback:
    update`, the `jq`/`git`/`curl` packages, and the two deployed files
    (revive script, systemd unit) if this tool's version of them has
    changed. Never overwrites a deployed file without asking first. Does
-   **not** touch your project repos — that's still plain `git pull`. Also
-   updates the date and Claude Code version in this tool's own
-   preview-status note (below) — not the preview claim itself, that
-   still needs a human to check.
+   **not** touch your project repos — that's still plain `git pull`.
 4. **New project** — asks for a project name, then whether it should be a
    git project or purely local: git clones a remote if you give one (or
    just runs `git init`), local skips `.git` entirely. Sets

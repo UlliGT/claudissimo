@@ -87,10 +87,7 @@ This tool has five actions:
           update`, the jq/git/curl packages, and the two files setup
           deployed (revive script, systemd unit) if this tool's version
           of them has changed. Never overwrites a deployed file without
-          asking first. Does not touch any project repos. Also updates
-          the date and Claude Code version in this tool's own
-          preview-status note (below) — not the preview claim itself,
-          that still needs a human to check.
+          asking first. Does not touch any project repos.
 
   new     Asks for a project name, then whether it should be a git
           project or purely local — git clones a remote if you give one
