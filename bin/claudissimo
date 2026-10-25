@@ -10,7 +10,7 @@ source "$LIB_DIR/common.sh"
 
 usage() {
   cat <<EOF
-Usage: $(basename "$0") [setup|status [projects|agents|service]|update|new|info]
+Usage: $(basename "$0") [setup|status [projects|agents|service|versions]|update|new|delete|info]
 
 Run without an argument for an interactive menu.
 EOF
@@ -20,6 +20,7 @@ run_setup()  { source "$LIB_DIR/setup.sh"; action_setup; }
 run_status() { source "$LIB_DIR/status.sh"; action_status "${1:-all}"; }
 run_update() { source "$LIB_DIR/update.sh"; action_update; }
 run_new()    { source "$LIB_DIR/new_project.sh"; action_new_project; }
+run_delete() { source "$LIB_DIR/delete_project.sh"; action_delete_project; }
 
 print_banner() {
   clear
@@ -40,17 +41,19 @@ print_info() {
   cat <<'EOF'
 What this tool does
 
-The idea: Claude Code background agents ("Agent view", `claude --bg`) run
-here permanently. Set this machine up once, and sessions survive reboots
-on their own — you never need an open SSH connection to use them, you
-control them remotely instead, from the Claude app on another device
-(phone, laptop, ...).
+You're looking at the info screen of claudissimo, running right here on
+this host. It keeps Claude Code background sessions alive permanently —
+surviving reboots on their own — so you can reach them from anywhere:
+phone, laptop, the Claude app, claude.ai. No SSH session needed to use
+them, only to run this tool itself.
 
-This tool has four actions:
+This tool has five actions:
 
   setup   Prepares this machine to run Claude Code background sessions
           permanently. Steps, each skipped if already in place:
             - installs jq, git, curl via apt-get (Ubuntu/Debian)
+            - installs Claude Code itself if missing, via the official
+              installer (curl -fsSL https://claude.ai/install.sh | bash)
             - enables "remoteControlAtStartup" in ~/.claude/settings.json,
               so new sessions default to remote-controllable
             - writes ~/.local/bin/claude-agents-revive.sh: it reads
@@ -73,18 +76,40 @@ This tool has four actions:
   status  Reports, for every project directory and every background
           session: whether it's actually alive, whether it ended up in an
           unwanted git worktree, and whether the revive service is
-          enabled.
+          enabled. Also reports versions: claude's, jq/git/curl's (plus
+          whether apt has a pending upgrade for them), and whether the
+          two deployed files still match this tool's current version —
+          everything `update` would act on, shown without changing
+          anything.
 
-  update  Pulls clean project repos, runs `claude update`, and offers to
-          refresh the two files setup deployed (revive script, systemd
-          unit) if this tool's version of them has changed. Dirty repos
-          are skipped, never force-pulled; deployed files are never
-          overwritten without asking.
+  update  Refreshes what this host needs to keep running: `claude
+          update`, the jq/git/curl packages, and the two files setup
+          deployed (revive script, systemd unit) if this tool's version
+          of them has changed. Never overwrites a deployed file without
+          asking first. Does not touch any project repos. Also updates
+          the date and Claude Code version in this tool's own
+          preview-status note (below) — not the preview claim itself,
+          that still needs a human to check.
 
-  new     Clones or initializes a project directory, sets the
-          `bgIsolation: none` setting so background sessions edit the
-          project folder directly instead of a worktree copy, and starts
-          the first background session.
+  new     Asks for a project name, then whether it should be a git
+          project or purely local — git clones a remote if you give one
+          (or just runs `git init`), local skips `.git` entirely. Sets
+          `bgIsolation: none` so background sessions edit the project
+          folder directly instead of a worktree copy. Runs `claude`
+          interactively once for the first-run trust confirmation
+          (that's on you), then starts the first background session,
+          named after the project, with a fixed prompt that has it
+          report its hostname, working directory, and git remote.
+
+  delete  Completely removes a project: stops and removes any background
+          session still pointing at it, deletes the project directory
+          under ~/claude-projects, and deletes its Claude Code metadata
+          under ~/.claude/projects/ (session history, memory). Warns
+          about uncommitted changes and commits not pushed to any
+          upstream before you confirm — those would be lost, nothing
+          else needs doing on the GitHub side, deleting a local clone
+          doesn't touch the remote repo. You have to re-type the project
+          name to confirm — this cannot be undone.
 
 After setup, background sessions should show up automatically in the
 Claude app (or claude.ai) on any other device signed into the same
@@ -112,6 +137,13 @@ Tested on Ubuntu/Debian. Everything except the package install in
 `setup` (which uses `apt-get`) should work on any systemd-based Linux
 with `loginctl` linger support; on other distros, install jq/git/curl
 yourself first.
+
+This whole tool builds on Claude Code's "Agent view" (background
+sessions, `claude --bg`, Remote Control) — a research preview from
+Anthropic, not a finished, generally released feature, as of 2026-10-25
+on Claude Code 2.1.310. It can change behavior or break between Claude
+Code versions with no notice from this
+tool.
 EOF
 }
 
@@ -121,14 +153,16 @@ status_menu() {
     printf '  1) Projects overview\n'
     printf '  2) Background sessions\n'
     printf '  3) systemd revive service\n'
-    printf '  4) Everything\n'
+    printf '  4) Versions (what update can refresh)\n'
+    printf '  5) Everything\n'
     printf '  b) Back\n'
     read -r -p 'Choose: ' choice
     case "$choice" in
       1) run_status projects ;;
       2) run_status agents ;;
       3) run_status service ;;
-      4) run_status all ;;
+      4) run_status versions ;;
+      5) run_status all ;;
       b|B) break ;;
       *) log_warn "unknown choice: $choice" ;;
     esac
@@ -140,6 +174,7 @@ confirm_setup() {
 
 Initial setup will do the following on this machine:
   - install missing packages (jq, git, curl) via apt-get — asks for sudo
+  - install Claude Code itself if missing, via the official installer
   - enable "remoteControlAtStartup" in ~/.claude/settings.json
   - create ~/.local/bin/claude-agents-revive.sh
   - create and enable ~/.config/systemd/user/claude-agents.service
@@ -161,8 +196,9 @@ interactive_menu() {
     printf '\nClaudissimo\n'
     printf '  1) Initial setup\n'
     printf '  2) Check status\n'
-    printf '  3) Update (git repos, Claude Code, deployed scripts)\n'
+    printf '  3) Update (Claude Code, packages, deployed scripts)\n'
     printf '  4) Create new project\n'
+    printf '  5) Delete project\n'
     printf '  i) Info\n'
     printf '  q) Quit\n'
     read -r -p 'Choose: ' choice
@@ -171,6 +207,7 @@ interactive_menu() {
       2) status_menu ;;
       3) run_update ;;
       4) run_new ;;
+      5) run_delete ;;
       i|I) print_info ;;
       q|Q) break ;;
       *) log_warn "unknown choice: $choice" ;;
@@ -183,6 +220,7 @@ case "${1:-}" in
   status)     shift; run_status "${1:-all}" ;;
   update)     run_update ;;
   new)        run_new ;;
+  delete)     run_delete ;;
   info)       print_info ;;
   -h|--help)  usage ;;
   "")         interactive_menu ;;

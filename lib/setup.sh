@@ -71,8 +71,14 @@ action_setup() {
   if require_cmd claude; then
     log_skip "claude already installed ($(claude --version 2>/dev/null || echo "version unknown"))"
   else
-    log_warn "claude not found."
-    log_warn "UNVERIFIED by this tool — install Claude Code yourself first (see https://docs.anthropic.com/claude-code), then re-run this setup."
+    log_warn "claude not found — installing via the official installer (always fetches the current version)"
+    curl -fsSL https://claude.ai/install.sh | bash
+    export PATH="$HOME/.local/bin:$PATH"
+    if require_cmd claude; then
+      log_ok "installed claude ($(claude --version 2>/dev/null || echo "version unknown"))"
+    else
+      log_err "install finished but 'claude' still isn't on PATH — open a new shell and re-run setup"
+    fi
   fi
 
   log_info "--- Remote Control for new sessions (global Claude Code setting) ---"
@@ -129,6 +135,8 @@ action_setup() {
     log_ok "GitHub SSH is connected"
   else
     log_warn "GitHub SSH not confirmed — set up your own SSH key with GitHub if you need git over SSH"
+    log_warn "ssh said:"
+    printf '%s\n' "$ssh_check" | sed 's/^/  /'
   fi
 
   log_info "=== Setup finished ==="

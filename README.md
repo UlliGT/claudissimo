@@ -1,34 +1,78 @@
 # claudissimo
 
-The idea: Claude Code background agents ("Agent view", `claude --bg`) run on
-this machine permanently. Set it up once, and sessions survive reboots on
-their own — you never need an open SSH connection to use them, you control
-them remotely instead, from the Claude app on another device (phone, laptop,
-...).
+This tiny management tool helps you setup Claude Code background agents on
+an Ubuntu/Debian machine to run permanently. You then remote control them
+from any other device using the Claude app or website. This way, you're able
+to work on code projects on the go while the agents live on e.g. a VM
+somewhere and you do not have to leave your laptop on. Set it up once, and
+sessions survive reboots on their own.
 
-This tool offers four actions, either as subcommands or through a one-line
-interactive menu — no curses UI, output stays in your normal scrollback:
+## Usage
+
+    bin/claudissimo
+
+Shows a numbered menu: Initial setup, Check status, Update, Create new
+project, Info — all in the same terminal, no curses UI. Status opens its
+own submenu so you can look at projects, background sessions, or the
+systemd service on their own instead of one long dump.
+
+Each action is also available directly as a subcommand — handy for
+scripting, e.g. in a cron job:
+
+    bin/claudissimo setup
+    bin/claudissimo status [projects|agents|service]
+    bin/claudissimo update
+    bin/claudissimo new
+    bin/claudissimo delete   # still asks you to re-type the project name
+    bin/claudissimo info
+
+Projects live under `~/claude-projects` by default; override with
+`CLAUDE_PROJECTS_ROOT=/some/other/path bin/claudissimo ...`.
+
+## Functions
+
+This tool offers five actions through a one-line interactive menu — no
+curses UI, output stays in your normal scrollback:
 
 1. **Initial setup** — installs the pieces needed to run background sessions
-   and survive a reboot: a revive script plus a systemd user service, enables
-   linger so the service runs without an active login, and turns on
-   `remoteControlAtStartup` in `~/.claude/settings.json` so new sessions can
-   be controlled remotely from the start. From the interactive menu, it
-   explains itself and asks for confirmation before changing anything.
+   and survive a reboot: `jq`, `git`, `curl`, Claude Code itself if missing
+   (via the official installer), a revive script plus a systemd user
+   service, enables linger so the service runs without an active login,
+   and turns on `remoteControlAtStartup` in `~/.claude/settings.json` so new
+   sessions can be controlled remotely from the start. From the interactive
+   menu, it explains itself and asks for confirmation before changing
+   anything.
 2. **Status** — reports, for every project directory and every background
-   session: whether it's actually alive (checked via `pid`, not `pgrep` —
-   see below), whether it ended up in an unwanted git worktree, and whether
-   the revive service is enabled.
-3. **Update** — pulls clean project repos, runs `claude update`, and offers
-   to refresh the two deployed files (revive script, systemd unit) if this
-   tool's version of them has changed. Dirty repos are skipped, never force-
-   pulled; deployed files are never overwritten without asking.
-4. **New project** — clones or initializes a project directory, sets the
-   `bgIsolation: none` setting so background sessions edit the project
-   folder directly instead of a worktree copy, and starts the first
-   background session.
+   session: whether it's actually alive, whether it ended up in an unwanted
+   git worktree, and whether the revive service is enabled.
+3. **Update** — refreshes what this host needs to keep running: `claude
+   update`, the `jq`/`git`/`curl` packages, and the two deployed files
+   (revive script, systemd unit) if this tool's version of them has
+   changed. Never overwrites a deployed file without asking first. Does
+   **not** touch your project repos — that's still plain `git pull`. Also
+   updates the date and Claude Code version in this tool's own
+   preview-status note (below) — not the preview claim itself, that
+   still needs a human to check.
+4. **New project** — asks for a project name, then whether it should be a
+   git project or purely local: git clones a remote if you give one (or
+   just runs `git init`), local skips `.git` entirely. Sets
+   `bgIsolation: none` so background sessions edit the project folder
+   directly instead of a worktree copy. Runs `claude` interactively once
+   for the first-run trust confirmation (that's on you), then starts the
+   first background session, named after the project, with a fixed
+   prompt that has it report its hostname, working directory, and git
+   remote.
+5. **Delete project** — completely removes a project: stops and removes
+   any background session still pointing at it, deletes the project
+   directory under `~/claude-projects`, and deletes its Claude Code
+   metadata under `~/.claude/projects/` (session history, memory). Warns
+   about uncommitted changes and commits not pushed to any upstream
+   before you confirm — those would be lost; nothing else needs doing on
+   the GitHub side, deleting a local clone doesn't touch the remote repo.
+   Asks you to re-type the project name to confirm — this cannot be
+   undone.
 
-## After setup
+## Troubleshooting
 
 Background sessions should show up automatically in the Claude app (or
 claude.ai) on any other device signed into the same account — no extra step
@@ -63,27 +107,13 @@ use this check.
   user services, `loginctl` linger, bash, jq, git, curl, claude) works on any
   systemd-based Linux; on other distros, install `jq`/`git`/`curl` yourself
   before running `setup`.
-- Claude Code (`claude`) already installed. **Not automated by this tool**:
-  `setup` only checks for it and points at the install docs.
-
-## Usage
-
-    bin/claudissimo setup                        # action 1
-    bin/claudissimo status [projects|agents|service]  # action 2, defaults to all three
-    bin/claudissimo update                       # action 3
-    bin/claudissimo new                          # action 4
-    bin/claudissimo info                         # prints the "What this tool does" text above
-
-Without an argument, `bin/claudissimo` shows a numbered menu that
-dispatches to the same four actions plus `i) Info`, in the same terminal;
-status opens a submenu so you can look at projects, background sessions, or
-the systemd service on their own instead of one long dump.
-
-Projects live under `~/claude-projects` by default; override with
-`CLAUDE_PROJECTS_ROOT=/some/other/path bin/claudissimo ...`.
+- Claude Code (`claude`) — `setup` installs it if missing, via the official
+  installer (`curl -fsSL https://claude.ai/install.sh | bash`).
 
 ## Status of this tool
 
-Exercised on one machine so far. Action 1 (initial setup) in particular has
-not yet been run end-to-end on a genuinely fresh VM — treat it as unverified
-until tried.
+This whole tool builds on Claude Code's "Agent view" (background sessions,
+`claude --bg`, Remote Control) — a research preview from Anthropic, not a
+finished, generally released feature, as of 2026-10-25 on Claude Code
+2.1.310. It can change behavior or break between Claude Code versions
+with no notice from this tool.

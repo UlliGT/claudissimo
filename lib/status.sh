@@ -85,12 +85,68 @@ status_service() {
   log_info "linger for $USER: $linger"
 }
 
+status_versions() {
+  log_info "=== Versions (what 'update' can refresh) ==="
+
+  if require_cmd claude; then
+    log_info "claude: $(claude --version 2>/dev/null || echo "unknown")"
+  else
+    log_warn "claude not installed"
+  fi
+  log_info "  (checking for a newer claude version means running 'update' — it installs immediately if one exists, there's no check-only mode)"
+
+  log_info ""
+  log_info "--- jq / git / curl ---"
+  local pkg installed
+  for pkg in jq git curl; do
+    if require_cmd "$pkg"; then
+      installed="$(dpkg-query -W -f='${Version}' "$pkg" 2>/dev/null || echo unknown)"
+      log_info "$pkg: $installed"
+    else
+      log_warn "$pkg not installed"
+    fi
+  done
+  local upgradable
+  upgradable="$(apt list --upgradable 2>/dev/null | grep -E '^(jq|git|curl)/' || true)"
+  if [ -n "$upgradable" ]; then
+    log_warn "upgrade available (run 'update' to apply):"
+    printf '%s\n' "$upgradable" | sed 's/^/  /'
+  else
+    log_skip "no upgrade pending for jq/git/curl (based on the current apt cache — 'update' refreshes that cache first)"
+  fi
+
+  log_info ""
+  log_info "--- deployed files vs this tool's current version ---"
+  source "$LIB_DIR/setup.sh"
+  local revive_path="$HOME/.local/bin/claude-agents-revive.sh"
+  local unit_path="$HOME/.config/systemd/user/claude-agents.service"
+  if [ -f "$revive_path" ]; then
+    if [ "$(cat "$revive_path")" = "$(revive_script_content)" ]; then
+      log_skip "$revive_path matches"
+    else
+      log_warn "$revive_path differs — run 'update' to refresh"
+    fi
+  else
+    log_warn "$revive_path not deployed yet — run 'setup'"
+  fi
+  if [ -f "$unit_path" ]; then
+    if [ "$(cat "$unit_path")" = "$(systemd_unit_content)" ]; then
+      log_skip "$unit_path matches"
+    else
+      log_warn "$unit_path differs — run 'update' to refresh"
+    fi
+  else
+    log_warn "$unit_path not deployed yet — run 'setup'"
+  fi
+}
+
 action_status() {
   case "${1:-all}" in
     projects) status_projects ;;
     agents)   status_agents ;;
     service)  status_service ;;
-    all)      status_projects; log_info ""; status_agents; log_info ""; status_service ;;
-    *)        log_err "unknown status target: $1 (expected: projects|agents|service|all)"; return 1 ;;
+    versions) status_versions ;;
+    all)      status_projects; log_info ""; status_agents; log_info ""; status_service; log_info ""; status_versions ;;
+    *)        log_err "unknown status target: $1 (expected: projects|agents|service|versions|all)"; return 1 ;;
   esac
 }

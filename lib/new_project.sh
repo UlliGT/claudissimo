@@ -19,14 +19,22 @@ action_new_project() {
     return 0
   fi
 
-  local remote
-  read -r -p "Git remote URL (leave empty for a local-only repo): " remote
+  local is_git
+  read -r -p "Git project, or purely local? [git/local, default git]: " is_git
+  is_git="${is_git:-git}"
 
   mkdir -p "$target"
-  if [ -n "$remote" ]; then
-    git clone "$remote" "$target"
+
+  if [[ "$is_git" =~ ^[Gg] ]]; then
+    local remote
+    read -r -p "Git remote URL (leave empty to just run 'git init'): " remote
+    if [ -n "$remote" ]; then
+      git clone "$remote" "$target"
+    else
+      git -C "$target" init -q -b main
+    fi
   else
-    git -C "$target" init
+    log_skip "purely local — no .git directory created"
   fi
 
   mkdir -p "$target/.claude"
@@ -41,29 +49,34 @@ action_new_project() {
     printf '{ "worktree": { "bgIsolation": "none" } }\n' > "$settings_file"
   fi
   log_ok "wrote $settings_file"
+  log_info "This makes background sessions edit the project folder directly instead of a git worktree copy."
 
-  local exclude_file="$target/.git/info/exclude"
-  if [ -f "$exclude_file" ] && grep -qx '.claude/settings.local.json' "$exclude_file"; then
-    log_skip ".claude/settings.local.json already excluded from git"
-  else
-    printf '.claude/settings.local.json\n' >> "$exclude_file"
-    log_ok "excluded .claude/settings.local.json from git"
+  if [ -d "$target/.git" ]; then
+    local exclude_file="$target/.git/info/exclude"
+    if [ -f "$exclude_file" ] && grep -qx '.claude/settings.local.json' "$exclude_file"; then
+      log_skip ".claude/settings.local.json already excluded from git"
+    else
+      printf '.claude/settings.local.json\n' >> "$exclude_file"
+      log_ok "excluded .claude/settings.local.json from git"
+    fi
   fi
 
   log_info ""
-  log_info "First run needs an interactive trust confirmation."
-  log_info "Starting 'claude' in $target — confirm the trust prompt, then type /exit."
+  log_info "First run needs an interactive trust confirmation ${C_CYAN_BOLD}FROM YOU!${C_RESET}"
+  log_info "Starting 'claude' in $target — ${C_CYAN_BOLD}confirm the trust prompt, then type /exit.${C_RESET}"
   read -r -p "Press Enter to continue..." _ || true
   (cd "$target" && claude)
-
-  local prompt
-  read -r -p "Initial prompt for the background session [Get familiar with the project]: " prompt
-  prompt="${prompt:-Get familiar with the project}"
+  clear
 
   log_info "Starting background session..."
-  (cd "$target" && claude --bg "$prompt")
+  (cd "$target" && claude --bg --name "$name" "This session is always remote-controlled from another device. Show the hostname, working directory, and git remote (if any), so the user immediately knows where this session's home is.")
 
   log_info ""
-  log_info "=== git status in $target ==="
-  git -C "$target" status
+  if [ -d "$target/.git" ]; then
+    log_info "=== git status in $target ==="
+    git -C "$target" status
+  else
+    log_info "=== contents of $target ==="
+    ls -la "$target"
+  fi
 }
