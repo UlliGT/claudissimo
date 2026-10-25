@@ -1,0 +1,190 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" >/dev/null 2>&1 && pwd -P)"
+REPO_ROOT="$(dirname -- "$SCRIPT_DIR")"
+LIB_DIR="$REPO_ROOT/lib"
+
+# shellcheck source=lib/common.sh
+source "$LIB_DIR/common.sh"
+
+usage() {
+  cat <<EOF
+Usage: $(basename "$0") [setup|status [projects|agents|service]|update|new|info]
+
+Run without an argument for an interactive menu.
+EOF
+}
+
+run_setup()  { source "$LIB_DIR/setup.sh"; action_setup; }
+run_status() { source "$LIB_DIR/status.sh"; action_status "${1:-all}"; }
+run_update() { source "$LIB_DIR/update.sh"; action_update; }
+run_new()    { source "$LIB_DIR/new_project.sh"; action_new_project; }
+
+print_banner() {
+  clear
+  echo -e "\033[0;37m                                                                                                                                                \033[0m"
+  echo -e "\033[0;90;47m▓\033[0;90;46m▀▀▀▀▀▀▀▀▀▀\033[0;37m█ \033[0;90;47m▓\033[0;90;46m▀▀▀▀▀\033[0;37m█        \033[0;90;47m▓\033[0;90;46m▀▀▀▀▀▀▀▀▀▀▀▀▀\033[0;37m█ \033[0;90;47m▓\033[0;90;46m▀▀▀▀\033[0;37m█   █\033[0;90;46m▀▀▀\033[0;37m█ \033[0;90;47m▓\033[0;90;46m▀▀▀▀▀▀▀▀\033[0;37m▄▄    \033[0;90;47m▓\033[0;90;46m▀▀▀▀\033[0;37m█ \033[0;90;47m▓\033[0;90;46m▀▀▀▀▀▀▀▀▀▀\033[0;37m█ \033[0;90;47m▓\033[0;90;46m▀▀▀▀▀▀▀▀▀▀\033[0;37m█ \033[0;90;47m▓\033[0;90;46m▀▀▀▀\033[0;37m█ \033[0;90;47m▓\033[0;90;46m▀▀▀▀▀▀\033[0;90m▄▄\033[0;90;46m▀\033[0;90;47m▀▀\033[0;90m▄\033[0;37m   \033[0;90;47m▓\033[0;90;46m▀▀▀▀▀▀▀▀\033[0;37m▄▄   \033[0m"
+  echo -e "\033[0;90;47m▒\033[0;97;46m░░░░░░░░░░\033[0;37m█ \033[0;90;47m▒\033[0;97;46m░░░░░\033[0;37m█        \033[0;90;47m▒\033[0;97;46m░░░░░░░░░░░░░\033[0;37m█ \033[0;90;47m▒\033[0;97;46m░░░░\033[0;37m█   \033[0;90;47m░\033[0;97;46m░░░\033[0;37m█ \033[0;90;47m▒\033[0;97;46m░░░░░░░░░░\033[0;37;46m▀\033[0;37m▄  \033[0;90;47m▒\033[0;37;46m▄▄▄▄\033[0;37m█ \033[0;90;47m▒\033[0;97;46m░░░░░░░░░░\033[0;37m█ \033[0;90;47m▒\033[0;97;46m░░░░░░░░░░\033[0;37m█ \033[0;90;47m▒\033[0;37;46m▄▄▄▄\033[0;37m█ \033[0;90;47m▒\033[0;97;46m░░░░░░░░░░░\033[0;37;46m▀\033[0;90;47m▀\033[0;90m▄\033[0;37m \033[0;90;47m▒\033[0;97;46m░░░░░░░░░░\033[0;37;46m▀\033[0;37m▄ \033[0m"
+  echo -e "\033[0;90;47m░\033[0;37;46m▄▄▄▄▄▄▄▄▄▄\033[0;37m█ \033[0;90;47m░\033[0;97;46m▒▒▓▒▒\033[0;37m█        \033[0;90;47m░\033[0;37;46m▄▄▄▄\033[0;37m█▀▀▀█\033[0;97;46m▒▒▓▒\033[0;37m█ \033[0;90;47m░\033[0;37;46m▄▄▄▄\033[0;37m█   \033[0;90;47m░\033[0;97;46m▒▒▒\033[0;37m█ \033[0;90;47m░\033[0;37;46m▄▄▄▄▄▄▄▄\033[0;97;46m▒▒▒▒\033[0;37m█        \033[0;90;47m░\033[0;37;46m▄▄▄▄▄▄▄▄▄▄█\033[0;37m \033[0;90;47m░\033[0;37;46m▄▄▄▄▄▄▄▄▄▄█\033[0;37m        \033[0;90;47m░\033[0;37;46m▄▄▄▄▄▄▄▄▄\033[0;97;46m▒▒▒▒\033[0;37m█ \033[0;90;47m░\033[0;37;46m▄▄▄▄▄▄▄▄\033[0;97;46m▒▒▒▒\033[0;37m█\033[0m"
+  echo -e "\033[0;90m▄▄▄▄▄\033[0;37m        \033[0;90m█\033[0;97m▀\033[0;97;46m▓▓▓▒\033[0;37m█        \033[0;90m▄▄▄▄▄▄▄▄▄\033[0;90;47m░\033[0;97;46m░▓▒▓\033[0;37m█ \033[0;90m▄▄▄▄▄▄\033[0;37m   \033[0;90;47m░\033[0;97;46m▒▓▓\033[0;37m█ \033[0;90m▄▄▄▄▄▄\033[0;37m   \033[0;90;47m░\033[0;97;46m▒▓▓\033[0;37m█ \033[0;90m▄▄▄▄▄\033[0;37m▄ \033[0;90m▄▄▄▄▄▄▄▄▄▄▄▄\033[0;37m \033[0;90m▄▄▄▄▄▄▄▄▄▄▄▄\033[0;37m \033[0;90m▄▄▄▄▄\033[0;37m▄ \033[0;90m▄▄▄▄▄▄\033[0;37m █\033[0;90m█\033[0;37m \033[0;90;47m░\033[0;97;46m▒▓▓\033[0;37m█ \033[0;90m▄▄▄▄▄▄\033[0;37m   \033[0;90;47m░\033[0;97;46m▒▓▓\033[0;37m█\033[0m"
+  echo -e "\033[0;90m█\033[0;97m▀\033[0;97;46m▓▓\033[0;90;47m▓\033[0;37m        \033[0;90m█\033[0;93;41m░\033[0;97m▀▀\033[0;97;46m▓▓\033[0;37m█        \033[0;90m█\033[0;97m▀▀\033[0;97;46m▓▓\033[0;97m▀▀▀▀▀▀\033[0;97;46m▓▓▓\033[0;37m█ \033[0;90m█\033[0;97m▀\033[0;97;46m▓▓▓\033[0;90;47m▓\033[0;37m   \033[0;90;47m▒\033[0;97;46m▓\033[0;97m▀▀\033[0;37m█ \033[0;90m█\033[0;97m▀\033[0;97;46m▓▓▓\033[0;90;47m▓\033[0;37m   \033[0;90;47m▒\033[0;97;46m▓\033[0;97m▀▀\033[0;37m█ \033[0;90m█\033[0;97m▀\033[0;33m▄\033[0;97;46m▓▓\033[0;37m█ \033[0;90m█\033[0;97m▀\033[0;97;46m▓▓▓▓▓\033[0;97m██▀▀\033[0;90;47m▓\033[0;37m \033[0;90m█\033[0;97m▀\033[0;97;46m▓▓▓▓▓\033[0;97m██▀▀\033[0;90;47m▓\033[0;37m \033[0;90m█\033[0;97m▀\033[0;33m▄\033[0;97;46m▓▓\033[0;37m█ \033[0;90m█\033[0;97m▀\033[0;97;46m▓▓▓\033[0;90;47m▓\033[0;37m █\033[0;90m█\033[0;37m \033[0;90;47m▒\033[0;97;46m▓\033[0;97m▀▀\033[0;37m█ \033[0;90;47m░\033[0;97m▀\033[0;97;46m▓▓▓\033[0;90;47m▓\033[0;37m   \033[0;90;47m▒\033[0;97;46m▓\033[0;97m▀▀\033[0;37m█\033[0m"
+  echo -e "\033[0;90m█\033[0;93;43m░\033[0;33m▄▄\033[0;90m█\033[0;37m        \033[0;90m█\033[0;93;41m░░\033[0;33m▄\033[0;97m▀▀\033[0;37m█        \033[0;90m█\033[0;93;41m░\033[0;33m▄▄▄\033[0;90m█▀▀▀█\033[0;93;41m░\033[0;33m▄▄▄\033[0;37m█ \033[0;90;47m▓\033[0;93;43m░\033[0;33m▄▄▄\033[0;90;47m▒\033[0;37m   \033[0;90;47m▓\033[0;33m▄\033[0;93;43m░░\033[0;37m█ \033[0;90;47m▓\033[0;93;43m░\033[0;33m▄▄▄\033[0;90;47m▒\033[0;37m   \033[0;90;47m▓\033[0;33m▄\033[0;93;43m░░\033[0;37m█ \033[0;90m█\033[0;93;41m░░\033[0;33m▄▄\033[0;37m█ \033[0;90m█\033[0;90;43m▄\033[0;90m▄▄▄▄▄▄\033[0;33m▄█\033[0;93;43m░\033[0;90;47m▒\033[0;37m \033[0;90m█\033[0;90;43m▄\033[0;90m▄▄▄▄▄▄\033[0;33m▄█\033[0;93;43m░\033[0;90;47m▒\033[0;37m \033[0;90m█\033[0;93;41m░░\033[0;33m▄▄\033[0;37m█ \033[0;90;47m▓\033[0;93;43m░\033[0;33m▄▄▄\033[0;90;47m▒\033[0;37m \033[0;90m▀▀\033[0;37m \033[0;90;47m▓\033[0;33m▄\033[0;93;43m░░\033[0;37m█ \033[0;90;47m▒\033[0;93;43m░\033[0;33m▄▄▄\033[0;90;47m▒\033[0;37m   \033[0;90;47m▓\033[0;33m▄\033[0;93;43m░░\033[0;37m█\033[0m"
+  echo -e "\033[0;90;47m▓\033[0;93;43m▒\033[0;93;41m░░\033[0;90m█\033[0;37m▄▄▄▄▄▄▄ \033[0;90;47m▓\033[0;93;41m▒▒▒▒▓\033[0;37m█▄▄▄▄▄▄▄ \033[0;90;47m▓\033[0;93;41m▒▒▒▒\033[0;90m█\033[0;37m   \033[0;90;47m▓\033[0;93;41m▒▒▒▒\033[0;37m█ \033[0;90;47m▓\033[0;93;43m▒░░░\033[0;37;43m▀\033[0;90;43m▀▀▀\033[0;93;43m▒▒▒░\033[0;37m█ \033[0;90;47m▓\033[0;93;43m▒░░░\033[0;37;43m▀\033[0;90;43m▀▀▀\033[0;93;43m▒▒▒░\033[0;37m█ \033[0;90;47m▓\033[0;93;41m▒▒░▒\033[0;37m█ \033[0;90m▄▄▄▄▄▄▄█\033[0;93;41m░\033[0;93;43m▒▒\033[0;90;47m░\033[0;37m \033[0;90m▄▄▄▄▄▄▄█\033[0;93;41m░\033[0;93;43m▒▒\033[0;90;47m░\033[0;37m \033[0;90;47m▓\033[0;93;41m▒▒░▒\033[0;37m█ \033[0;90;47m▓\033[0;93;43m▒░░░\033[0;37m█    \033[0;90;47m▓\033[0;93;43m▒▒\033[0;93;41m▒\033[0;37m█ \033[0;90;47m▓\033[0;93;43m░▒▒▒\033[0;37;43m▀\033[0;90;43m▀▀▀\033[0;93;43m▒▒▒░\033[0;37m█\033[0m"
+  echo -e "\033[0;90;47m▒\033[0;93;43m▓▓▒▒▒▓▓▓▓▓\033[0;37m█ \033[0;90;47m▒\033[0;93;41m▓▓▒▓▓▓▓▓▓▓▓▓\033[0;37m█ \033[0;90;47m▒\033[0;93;41m▓▓▓▓\033[0;90m█\033[0;37m   \033[0;90;47m▒\033[0;93;41m▓▓▓▓\033[0;37m█ \033[0;90;47m▒\033[0;93;43m▓▓▒▒▒▒▒▓▓▓▓▒\033[0;37m█ \033[0;90;47m▒\033[0;93;43m▓▓▒▒▒▒▒▓▓▓\033[0;93;47m▀\033[0;37m▀  \033[0;90;47m▒\033[0;93;41m▓▓▓▒\033[0;37m█ \033[0;90;47m▓\033[0;93;43m░▒▒▓▓▓▒▓▓▓\033[0;37m█ \033[0;90;47m▓\033[0;93;43m░▒▒▓▓▓▒▓▓▓\033[0;37m█ \033[0;90;47m▒\033[0;93;41m▓▓▓▒\033[0;37m█ \033[0;90;47m▒\033[0;93;43m▓▓▒▒\033[0;37m█    \033[0;90;47m▒\033[0;93;41m▓▓▓\033[0;37m█  ▀\033[0;93;47m▀\033[0;93;43m▓▓▒▒▒▓▓▓\033[0;93;47m▀\033[0;37m▀ \033[0m"
+  echo -e "\033[0;90;47m░\033[0;93;47m▀▀▀▀▀▀▀▀▀▀\033[0;37m█ \033[0;90;47m░\033[0;93;47m▀▀▀▀▀▀▀▀▀▀▀▀\033[0;37m█ \033[0;90;47m░\033[0;93;47m▀▀▀▀\033[0;37m█   \033[0;90;47m░\033[0;93;47m▀▀▀▀\033[0;37m█ \033[0;90;47m░\033[0;93;47m▀▀▀▀▀▀▀▀▀▀▀▀\033[0;37m█ \033[0;90;47m░\033[0;93;47m▀▀▀▀▀▀▀▀\033[0;37m▀▀    \033[0;90;47m░\033[0;93;47m▀▀▀▀\033[0;37m█ \033[0;90;47m░\033[0;93;47m▀▀▀▀▀▀▀▀▀▀\033[0;37m█ \033[0;90;47m░\033[0;93;47m▀▀▀▀▀▀▀▀▀▀\033[0;37m█ \033[0;90;47m░\033[0;93;47m▀▀▀▀\033[0;37m█ \033[0;90;47m░\033[0;93;47m▀▀▀▀\033[0;37m█    \033[0;90;47m░\033[0;93;47m▀▀▀\033[0;37m█    ▀▀\033[0;93;47m▀▀▀▀\033[0;37m▀▀   \033[0m"
+  printf '\nClaudissimo is a tiny management tool to run Claude Code agents\npermanently in the background on this host. The agents then get\ncontrolled remotely from other devices, e.g. the Claude app on Windows,\nmacOS, Smartphones or https://claude.ai. Pick "i" for the full picture.\n'
+}
+
+print_info() {
+  cat <<'EOF'
+What this tool does
+
+The idea: Claude Code background agents ("Agent view", `claude --bg`) run
+here permanently. Set this machine up once, and sessions survive reboots
+on their own — you never need an open SSH connection to use them, you
+control them remotely instead, from the Claude app on another device
+(phone, laptop, ...).
+
+This tool has four actions:
+
+  setup   Prepares this machine to run Claude Code background sessions
+          permanently. Steps, each skipped if already in place:
+            - installs jq, git, curl via apt-get (Ubuntu/Debian)
+            - enables "remoteControlAtStartup" in ~/.claude/settings.json,
+              so new sessions default to remote-controllable
+            - writes ~/.local/bin/claude-agents-revive.sh: it reads
+              `claude agents --json --all`, and for every session whose
+              pid isn't an actually running `claude` process, it runs
+              `claude respawn <id>` to bring that session back
+            - writes and enables
+              ~/.config/systemd/user/claude-agents.service: a systemd
+              user service (Type=oneshot, RemainAfterExit=yes) that runs
+              the revive script once, right when your systemd user
+              instance starts
+            - enables linger for your account, so that user instance (and
+              this service) starts at boot even without logging in —
+              that's what makes revival happen after a reboot with no
+              login needed
+            - creates ~/claude-projects if it doesn't exist yet
+            - checks, but never changes, GitHub SSH connectivity
+          Needs internet access, to register new sessions with claude.ai.
+
+  status  Reports, for every project directory and every background
+          session: whether it's actually alive, whether it ended up in an
+          unwanted git worktree, and whether the revive service is
+          enabled.
+
+  update  Pulls clean project repos, runs `claude update`, and offers to
+          refresh the two files setup deployed (revive script, systemd
+          unit) if this tool's version of them has changed. Dirty repos
+          are skipped, never force-pulled; deployed files are never
+          overwritten without asking.
+
+  new     Clones or initializes a project directory, sets the
+          `bgIsolation: none` setting so background sessions edit the
+          project folder directly instead of a worktree copy, and starts
+          the first background session.
+
+After setup, background sessions should show up automatically in the
+Claude app (or claude.ai) on any other device signed into the same
+account — no extra step needed. If one doesn't show up:
+  - check it's actually running here first: `claudissimo status` (a dead
+    session can't show up anywhere)
+  - make sure this machine has internet access (setup needs it to
+    register sessions with claude.ai)
+  - make sure you're signed into the same Claude account on both this
+    machine and the other device
+  - a session started before "remoteControlAtStartup" was enabled may
+    not have picked it up — try `claude respawn <id>` on it, or just
+    create a new one (unverified, worth testing)
+  - if it's alive here but shows as unreachable in the app, restart the
+    Claude app on the other device completely
+
+Why `pid`, not `pgrep`: a dead background session can still show state
+`done` after a reboot, and `claude respawn` hands a session to a
+pre-started spare process whose command line doesn't contain the session
+id — so matching by name with `pgrep` gives false positives. The only
+reliable check is reading the `pid` from `claude agents --json --all` and
+confirming `/proc/<pid>/cmdline` still belongs to a `claude` process.
+
+Tested on Ubuntu/Debian. Everything except the package install in
+`setup` (which uses `apt-get`) should work on any systemd-based Linux
+with `loginctl` linger support; on other distros, install jq/git/curl
+yourself first.
+EOF
+}
+
+status_menu() {
+  while true; do
+    printf '\nStatus\n'
+    printf '  1) Projects overview\n'
+    printf '  2) Background sessions\n'
+    printf '  3) systemd revive service\n'
+    printf '  4) Everything\n'
+    printf '  b) Back\n'
+    read -r -p 'Choose: ' choice
+    case "$choice" in
+      1) run_status projects ;;
+      2) run_status agents ;;
+      3) run_status service ;;
+      4) run_status all ;;
+      b|B) break ;;
+      *) log_warn "unknown choice: $choice" ;;
+    esac
+  done
+}
+
+confirm_setup() {
+  cat <<'EOF'
+
+Initial setup will do the following on this machine:
+  - install missing packages (jq, git, curl) via apt-get — asks for sudo
+  - enable "remoteControlAtStartup" in ~/.claude/settings.json
+  - create ~/.local/bin/claude-agents-revive.sh
+  - create and enable ~/.config/systemd/user/claude-agents.service
+  - enable linger for your user account — asks for sudo
+  - create ~/claude-projects if it doesn't exist yet
+  - check (not change) GitHub SSH connectivity
+  - needs internet access, to register the remote sessions with claude.ai
+
+Every step checks current state first and skips what's already in place.
+More detail on each step is under "i) Info" in the main menu.
+EOF
+  read -r -p "Proceed? [y/N] " reply
+  [[ "$reply" =~ ^[Yy]$ ]]
+}
+
+interactive_menu() {
+  print_banner
+  while true; do
+    printf '\nClaudissimo\n'
+    printf '  1) Initial setup\n'
+    printf '  2) Check status\n'
+    printf '  3) Update (git repos, Claude Code, deployed scripts)\n'
+    printf '  4) Create new project\n'
+    printf '  i) Info\n'
+    printf '  q) Quit\n'
+    read -r -p 'Choose: ' choice
+    case "$choice" in
+      1) confirm_setup && run_setup || log_skip "setup cancelled" ;;
+      2) status_menu ;;
+      3) run_update ;;
+      4) run_new ;;
+      i|I) print_info ;;
+      q|Q) break ;;
+      *) log_warn "unknown choice: $choice" ;;
+    esac
+  done
+}
+
+case "${1:-}" in
+  setup)      run_setup ;;
+  status)     shift; run_status "${1:-all}" ;;
+  update)     run_update ;;
+  new)        run_new ;;
+  info)       print_info ;;
+  -h|--help)  usage ;;
+  "")         interactive_menu ;;
+  *)          usage; exit 1 ;;
+esac
