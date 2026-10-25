@@ -53,10 +53,14 @@ curses UI, output stays in your normal scrollback:
    git remote (if it has one) — everything `update` would act on, shown
    without changing anything.
 3. **Update** — refreshes what this host needs to keep running: `claude
-   update`, the `jq`/`git`/`curl` packages, and the two deployed files
-   (revive script, systemd unit) if this tool's version of them has
-   changed. Never overwrites a deployed file without asking first. Does
-   **not** touch your project repos — that's still plain `git pull`.
+   update`, the `jq`/`git`/`curl` packages, this tool's own repo
+   (`git pull --ff-only`, if it's a checkout with an upstream and no
+   uncommitted changes), and the two deployed files (revive script,
+   systemd unit) if this tool's version of them has changed — including
+   whatever the repo pull just brought in. Never overwrites a deployed
+   file without asking first. Does **not** touch your *managed project*
+   repos (trace, ngtrng, ...) — those stay plain `git pull`, by hand,
+   per project.
 4. **New project** — asks for a project name, then whether it should be a
    git project or purely local: git clones a remote if you give one (or
    just runs `git init`), local skips `.git` entirely. Sets
