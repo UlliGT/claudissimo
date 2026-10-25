@@ -45,7 +45,7 @@ update_own_repo() {
   fi
   local before after
   before="$(git -C "$REPO_ROOT" rev-parse HEAD 2>/dev/null)"
-  if git -C "$REPO_ROOT" pull --ff-only; then
+  if git -C "$REPO_ROOT" pull --ff-only --quiet; then
     after="$(git -C "$REPO_ROOT" rev-parse HEAD 2>/dev/null)"
     if [ "$before" = "$after" ]; then
       log_skip "already up to date"
