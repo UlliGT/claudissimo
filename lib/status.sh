@@ -100,6 +100,20 @@ status_revive_timer() {
 
 status_memory() {
   log_info "=== Memory ==="
+
+  local mem_total mem_used mem_pct bar_width=30 filled empty
+  read -r mem_total mem_used < <(free -b 2>/dev/null | awk '/^Mem:/ {print $2, $3}')
+  if [ -n "$mem_total" ] && [ "$mem_total" -gt 0 ]; then
+    mem_pct=$(( mem_used * 100 / mem_total ))
+    filled=$(( mem_pct * bar_width / 100 ))
+    [ "$filled" -gt "$bar_width" ] && filled="$bar_width"
+    empty=$(( bar_width - filled ))
+    printf '  ['
+    [ "$filled" -gt 0 ] && printf '%0.s█' $(seq 1 "$filled")
+    [ "$empty" -gt 0 ] && printf '%0.s░' $(seq 1 "$empty")
+    printf '] %d%%\n' "$mem_pct"
+  fi
+
   free -h 2>/dev/null | sed 's/^/  /'
   local claude_mb
   claude_mb="$(ps -eo rss,cmd 2>/dev/null | grep -i claude | grep -v grep | awk '{sum+=$1} END {printf "%.0f", sum/1024+0}')"
