@@ -1,10 +1,10 @@
 #!/usr/bin/env bash
 # Action 3: update what this host needs to keep running background
 # sessions — Claude Code itself, the jq/git/curl packages, this tool's
-# own repo (if it's a git checkout with an upstream), and the two files
-# setup deploys (revive script + systemd unit). Does not touch any
-# *managed project* repos (trace, ngtrng, ...) — those stay plain
-# `git pull`, by hand, per project.
+# own repo (if it's a git checkout with an upstream), and the three
+# files setup deploys (revive script, systemd service, systemd timer).
+# Does not touch any *managed project* repos (trace, ngtrng, ...) — those
+# stay plain `git pull`, by hand, per project.
 
 update_deployed_file() {
   local path="$1" desired="$2"
@@ -89,4 +89,6 @@ action_update() {
   source "$LIB_DIR/setup.sh"
   update_deployed_file "$HOME/.local/bin/claude-agents-revive.sh" "$(revive_script_content)"
   update_deployed_file "$HOME/.config/systemd/user/claude-agents.service" "$(systemd_unit_content)"
+  update_deployed_file "$HOME/.config/systemd/user/claude-agents.timer" "$(timer_unit_content)"
+  systemctl --user daemon-reload
 }

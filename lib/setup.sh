@@ -4,6 +4,7 @@
 
 REVIVE_SCRIPT="$HOME/.local/bin/claude-agents-revive.sh"
 SYSTEMD_UNIT="$HOME/.config/systemd/user/claude-agents.service"
+SYSTEMD_TIMER="$HOME/.config/systemd/user/claude-agents.timer"
 
 revive_script_content() {
   cat <<'EOF'
@@ -34,6 +35,21 @@ ExecStart=$REVIVE_SCRIPT
 
 [Install]
 WantedBy=default.target
+EOF
+}
+
+timer_unit_content() {
+  cat <<'EOF'
+[Unit]
+Description=Periodically check for and revive dead Claude Code background sessions
+
+[Timer]
+OnBootSec=2min
+OnUnitActiveSec=15min
+Unit=claude-agents.service
+
+[Install]
+WantedBy=timers.target
 EOF
 }
 
@@ -110,6 +126,16 @@ action_setup() {
   else
     systemctl --user enable claude-agents
     log_ok "enabled claude-agents service"
+  fi
+
+  log_info "--- Periodic revive timer (catches idle-stopped sessions, not just reboots) ---"
+  ensure_file "$SYSTEMD_TIMER" "$(timer_unit_content)" 644
+  systemctl --user daemon-reload
+  if systemctl --user is-active claude-agents.timer >/dev/null 2>&1; then
+    log_skip "claude-agents.timer already running"
+  else
+    systemctl --user enable --now claude-agents.timer
+    log_ok "enabled and started claude-agents.timer (checks every 15 min)"
   fi
 
   log_info "--- Linger (keep user services running without an active login) ---"

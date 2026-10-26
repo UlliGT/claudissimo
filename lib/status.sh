@@ -80,6 +80,23 @@ status_service() {
   systemctl --user status claude-agents --no-pager 2>&1 | sed 's/^/  /' || true
 
   log_info ""
+  log_info "=== periodic revive timer (catches idle-stopped sessions, not just reboots) ==="
+  if systemctl --user is-active claude-agents.timer >/dev/null 2>&1; then
+    log_ok "claude-agents.timer is active"
+  else
+    log_warn "claude-agents.timer is not active — run initial setup"
+  fi
+  systemctl --user list-timers claude-agents.timer --no-pager 2>&1 | sed 's/^/  /' || true
+
+  log_info ""
+  log_info "=== Memory ==="
+  free -h 2>/dev/null | sed 's/^/  /'
+  local claude_mb
+  claude_mb="$(ps -eo rss,cmd 2>/dev/null | grep -i claude | grep -v grep | awk '{sum+=$1} END {printf "%.0f", sum/1024+0}')"
+  log_info "claude processes total: ${claude_mb:-0} MB (RSS, overlaps due to shared libraries — not purely additive)"
+  log_info "Claude Code's own supervisor stops idle sessions sooner when memory runs low (code.claude.com/docs/en/agent-view.md) — that's what the timer above is for."
+
+  log_info ""
   local linger
   linger="$(loginctl show-user "$USER" -p Linger --value 2>/dev/null || echo unknown)"
   log_info "linger for $USER: $linger"
@@ -118,26 +135,23 @@ status_versions() {
   log_info ""
   log_info "--- deployed files vs this tool's current version ---"
   source "$LIB_DIR/setup.sh"
-  local revive_path="$HOME/.local/bin/claude-agents-revive.sh"
-  local unit_path="$HOME/.config/systemd/user/claude-agents.service"
-  if [ -f "$revive_path" ]; then
-    if [ "$(cat "$revive_path")" = "$(revive_script_content)" ]; then
-      log_skip "$revive_path matches"
+  local check_path
+  for check_path in \
+    "$HOME/.local/bin/claude-agents-revive.sh:$(revive_script_content)" \
+    "$HOME/.config/systemd/user/claude-agents.service:$(systemd_unit_content)" \
+    "$HOME/.config/systemd/user/claude-agents.timer:$(timer_unit_content)"
+  do
+    local p="${check_path%%:*}" desired="${check_path#*:}"
+    if [ -f "$p" ]; then
+      if [ "$(cat "$p")" = "$desired" ]; then
+        log_skip "$p matches"
+      else
+        log_warn "$p differs — run 'update' to refresh"
+      fi
     else
-      log_warn "$revive_path differs — run 'update' to refresh"
+      log_warn "$p not deployed yet — run 'setup'"
     fi
-  else
-    log_warn "$revive_path not deployed yet — run 'setup'"
-  fi
-  if [ -f "$unit_path" ]; then
-    if [ "$(cat "$unit_path")" = "$(systemd_unit_content)" ]; then
-      log_skip "$unit_path matches"
-    else
-      log_warn "$unit_path differs — run 'update' to refresh"
-    fi
-  else
-    log_warn "$unit_path not deployed yet — run 'setup'"
-  fi
+  done
 
   log_info ""
   log_info "--- this checkout ($REPO_ROOT) vs its remote ---"

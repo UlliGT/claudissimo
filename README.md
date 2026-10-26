@@ -41,28 +41,33 @@ curses UI, output stays in your normal scrollback:
 1. **Initial setup** — installs the pieces needed to run background sessions
    and survive a reboot: `jq`, `git`, `curl`, Claude Code itself if missing
    (via the official installer), a revive script plus a systemd user
-   service, enables linger so the service runs without an active login,
-   and turns on `remoteControlAtStartup` in `~/.claude/settings.json` so new
-   sessions can be controlled remotely from the start. From the interactive
-   menu, it explains itself and asks for confirmation before changing
-   anything.
+   service, a **systemd timer that re-runs it every 15 minutes** (not just
+   at boot — Claude Code's own supervisor can stop an idle or
+   memory-pressured session mid-uptime; see
+   [agent-view.md](https://code.claude.com/docs/en/agent-view.md)), enables
+   linger so these units run without an active login, and turns on
+   `remoteControlAtStartup` in `~/.claude/settings.json` so new sessions can
+   be controlled remotely from the start. From the interactive menu, it
+   explains itself and asks for confirmation before changing anything.
 2. **Status** — reports, for every project directory and every background
    session: whether it's actually alive, whether it ended up in an unwanted
-   git worktree, and whether the revive service is enabled. Also reports
-   versions: claude's, jq/git/curl's (plus whether apt has a pending
-   upgrade for them), whether the two deployed files still match this
-   tool's current version, and whether this checkout itself is behind its
-   git remote (if it has one) — everything `update` would act on, shown
-   without changing anything.
+   git worktree, whether the revive service and the periodic revive timer
+   are enabled, and current memory usage (host total/free plus claude
+   processes' RSS — low memory makes Claude Code's own supervisor stop
+   idle sessions sooner). Also reports versions: claude's, jq/git/curl's
+   (plus whether apt has a pending upgrade for them), whether the three
+   deployed files still match this tool's current version, and whether
+   this checkout itself is behind its git remote (if it has one) —
+   everything `update` would act on, shown without changing anything.
 3. **Update** — refreshes what this host needs to keep running: `claude
    update`, the `jq`/`git`/`curl` packages, this tool's own repo
    (`git pull --ff-only`, if it's a checkout with an upstream and no
-   uncommitted changes), and the two deployed files (revive script,
-   systemd unit) if this tool's version of them has changed — including
-   whatever the repo pull just brought in. Never overwrites a deployed
-   file without asking first. Does **not** touch your *managed project*
-   repos (trace, ngtrng, ...) — those stay plain `git pull`, by hand,
-   per project.
+   uncommitted changes), and the three deployed files (revive script,
+   systemd service, systemd timer) if this tool's version of them has
+   changed — including whatever the repo pull just brought in. Never
+   overwrites a deployed file without asking first. Does **not** touch
+   your *managed project* repos (trace, ngtrng, ...) — those stay plain
+   `git pull`, by hand, per project.
 4. **New project** — asks for a project name, then whether it should be a
    git project or purely local: git clones a remote if you give one (or
    just runs `git init`), local skips `.git` entirely. Sets

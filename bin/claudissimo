@@ -66,8 +66,15 @@ This tool has six actions:
               user service (Type=oneshot, RemainAfterExit=yes) that runs
               the revive script once, right when your systemd user
               instance starts
+            - writes and starts
+              ~/.config/systemd/user/claude-agents.timer: re-triggers
+              that same service every 15 minutes, not just at boot — a
+              session can get stopped mid-uptime by Claude Code's own
+              supervisor (idle for about an hour unattended, or sooner
+              under memory pressure — see code.claude.com/docs/en/
+              agent-view.md), and only a periodic check catches that
             - enables linger for your account, so that user instance (and
-              this service) starts at boot even without logging in —
+              these units) starts at boot even without logging in —
               that's what makes revival happen after a reboot with no
               login needed
             - creates ~/claude-projects if it doesn't exist yet
@@ -76,18 +83,21 @@ This tool has six actions:
 
   status  Reports, for every project directory and every background
           session: whether it's actually alive, whether it ended up in an
-          unwanted git worktree, and whether the revive service is
-          enabled. Also reports versions: claude's, jq/git/curl's (plus
-          whether apt has a pending upgrade for them), whether the two
-          deployed files still match this tool's current version, and
-          whether this checkout itself is behind its git remote (if it
-          has one) — everything `update` would act on, shown without
-          changing anything.
+          unwanted git worktree, whether the revive service and the
+          periodic revive timer are enabled, and current memory usage
+          (host total/free plus claude processes' RSS — low memory makes
+          Claude Code's own supervisor stop idle sessions sooner). Also
+          reports versions: claude's, jq/git/curl's (plus whether apt has
+          a pending upgrade for them), whether the three deployed files
+          still match this tool's current version, and whether this
+          checkout itself is behind its git remote (if it has one) —
+          everything `update` would act on, shown without changing
+          anything.
 
   update  Refreshes what this host needs to keep running: `claude
           update`, the jq/git/curl packages, this tool's own repo
           (`git pull --ff-only`, if it's a checkout with an upstream and
-          no uncommitted changes), and the two files setup deployed
+          no uncommitted changes), and the three files setup deployed
           (revive script, systemd unit) if this tool's version of them
           has changed — including whatever the repo pull just brought
           in. Never overwrites a deployed file without asking first.
@@ -187,6 +197,8 @@ Initial setup will do the following on this machine:
   - enable "remoteControlAtStartup" in ~/.claude/settings.json
   - create ~/.local/bin/claude-agents-revive.sh
   - create and enable ~/.config/systemd/user/claude-agents.service
+  - create and start ~/.config/systemd/user/claude-agents.timer (re-checks
+    every 15 min, not just at boot)
   - enable linger for your user account — asks for sudo
   - create ~/claude-projects if it doesn't exist yet
   - check (not change) GitHub SSH connectivity
