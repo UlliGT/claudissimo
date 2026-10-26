@@ -5,6 +5,7 @@
 REVIVE_SCRIPT="$HOME/.local/bin/claude-agents-revive.sh"
 SYSTEMD_UNIT="$HOME/.config/systemd/user/claude-agents.service"
 SYSTEMD_TIMER="$HOME/.config/systemd/user/claude-agents.timer"
+SYSTEMD_TIMER_SERVICE="$HOME/.config/systemd/user/claude-agents-revive.service"
 
 revive_script_content() {
   cat <<'EOF'
@@ -46,10 +47,28 @@ Description=Periodically check for and revive dead Claude Code background sessio
 [Timer]
 OnBootSec=2min
 OnUnitActiveSec=15min
-Unit=claude-agents.service
+Unit=claude-agents-revive.service
 
 [Install]
 WantedBy=timers.target
+EOF
+}
+
+# Separate from claude-agents.service on purpose: that one has
+# RemainAfterExit=yes so systemd doesn't clean up the daemon it starts at
+# boot, but that same setting makes a plain `systemctl start` on it (which
+# is exactly what a timer does) a no-op once it's already "active (exited)"
+# — proven: it silently never re-ran after the first boot. This unit has
+# no RemainAfterExit, so it properly goes back to "inactive" after each
+# run and the timer can actually re-trigger it.
+timer_service_content() {
+  cat <<EOF
+[Unit]
+Description=Check for and revive dead Claude Code background sessions (triggered by claude-agents.timer)
+
+[Service]
+Type=oneshot
+ExecStart=$REVIVE_SCRIPT
 EOF
 }
 
@@ -129,6 +148,7 @@ action_setup() {
   fi
 
   log_info "--- Periodic revive timer (catches idle-stopped sessions, not just reboots) ---"
+  ensure_file "$SYSTEMD_TIMER_SERVICE" "$(timer_service_content)" 644
   ensure_file "$SYSTEMD_TIMER" "$(timer_unit_content)" 644
   systemctl --user daemon-reload
   if systemctl --user is-active claude-agents.timer >/dev/null 2>&1; then

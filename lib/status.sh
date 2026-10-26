@@ -96,6 +96,10 @@ status_revive_timer() {
     log_warn "claude-agents.timer is not active — run initial setup"
   fi
   systemctl --user list-timers claude-agents.timer --no-pager 2>&1 | sed 's/^/  /' || true
+
+  log_info ""
+  log_info "--- last actual run of the triggered service ---"
+  systemctl --user show claude-agents-revive.service -p ExecMainExitTimestamp 2>&1 | sed 's/^/  /'
 }
 
 status_memory() {
@@ -158,6 +162,7 @@ status_versions() {
   for check_path in \
     "$HOME/.local/bin/claude-agents-revive.sh:$(revive_script_content)" \
     "$HOME/.config/systemd/user/claude-agents.service:$(systemd_unit_content)" \
+    "$HOME/.config/systemd/user/claude-agents-revive.service:$(timer_service_content)" \
     "$HOME/.config/systemd/user/claude-agents.timer:$(timer_unit_content)"
   do
     local p="${check_path%%:*}" desired="${check_path#*:}"
