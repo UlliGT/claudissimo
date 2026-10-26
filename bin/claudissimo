@@ -143,7 +143,12 @@ This tool has eight actions:
           Code's own list (`claude rm`) — not just stop it. A merely
           stopped session is still listed and still gets picked up and
           respawned by the revive script/timer; this is the documented
-          way to make one stay gone. Warns first if it's the only
+          way to make one stay gone. `claude rm` deletes the
+          conversation transcript from disk — not a soft delete,
+          unrecoverable, verified. Project memory
+          (~/.claude/projects/.../memory/) lives separately by path and
+          survives, so a future session in that folder still has it,
+          just not that conversation. Warns first if it's the only
           session pointed at its project folder, since removing it
           leaves that project with no background session at all.
 
@@ -187,7 +192,7 @@ yourself first.
 
 This whole tool builds on Claude Code's "Agent view" (background
 sessions, `claude --bg`, Remote Control) — a research preview from
-Anthropic, not a finished, generally released feature, as of 2026-10-25
+Anthropic, not a finished, generally released feature, as of 2026-10-26
 on Claude Code 2.1.310. It can change behavior or break between Claude
 Code versions with no notice from this
 tool.

@@ -14,10 +14,11 @@ Set it up once, and sessions survive reboots on their own.
     bin/claudissimo
 
 Shows a numbered menu: Initial setup, Check status, Update, Create new
-project, Delete project, Revive dead sessions, Info — all in the same
-terminal, no curses UI. Status opens its own submenu so you can look at
-projects, background sessions, the boot revive service, the periodic
-revive timer, memory, or versions on their own instead of one long dump.
+project, Delete project, Revive dead sessions, Remove session, Start
+session, Info — all in the same terminal, no curses UI. Status opens
+its own submenu so you can look at projects, background sessions, the
+boot revive service, the periodic revive timer, memory, or versions on
+their own instead of one long dump.
 
 Each action is also available directly as a subcommand — handy for
 scripting, e.g. in a cron job:
@@ -103,8 +104,12 @@ curses UI, output stays in your normal scrollback:
    from Claude Code's own list (`claude rm`) — not just stop it. A
    merely stopped session is still listed and still gets picked up and
    respawned by the revive script/timer; this is the documented way to
-   make one stay gone. Warns first if it's the only session pointed at
-   its project folder, since removing it leaves that project with no
+   make one stay gone. `claude rm` deletes the conversation transcript
+   from disk — not a soft delete, unrecoverable, verified. Project
+   memory (`~/.claude/projects/.../memory/`) lives separately by path
+   and survives, so a future session in that folder still has it, just
+   not that conversation. Warns first if it's the only session pointed
+   at its project folder, since removing it leaves that project with no
    background session at all.
 8. **Start session** — starts a background session in a project
    directory that already exists but has no session left (the last one
@@ -156,6 +161,6 @@ use this check.
 
 This whole tool builds on Claude Code's "Agent view" (background sessions,
 `claude --bg`, Remote Control) — a research preview from Anthropic, not a
-finished, generally released feature, as of 2026-10-25 on Claude Code
+finished, generally released feature, as of 2026-10-26 on Claude Code
 2.1.310. It can change behavior or break between Claude Code versions
 with no notice from this tool.
