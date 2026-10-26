@@ -73,8 +73,8 @@ status_agents() {
   fi
 }
 
-status_service() {
-  log_info "=== systemd revive service ==="
+status_revive_service() {
+  log_info "=== systemd revive service (runs at boot) ==="
   if systemctl --user is-enabled claude-agents >/dev/null 2>&1; then
     log_ok "claude-agents service is enabled"
   else
@@ -83,6 +83,12 @@ status_service() {
   systemctl --user status claude-agents --no-pager 2>&1 | sed 's/^/  /' || true
 
   log_info ""
+  local linger
+  linger="$(loginctl show-user "$USER" -p Linger --value 2>/dev/null || echo unknown)"
+  log_info "linger for $USER: $linger (lets claude-agents.service start at boot without logging in)"
+}
+
+status_revive_timer() {
   log_info "=== periodic revive timer (catches idle-stopped sessions, not just reboots) ==="
   if systemctl --user is-active claude-agents.timer >/dev/null 2>&1; then
     log_ok "claude-agents.timer is active"
@@ -90,19 +96,15 @@ status_service() {
     log_warn "claude-agents.timer is not active — run initial setup"
   fi
   systemctl --user list-timers claude-agents.timer --no-pager 2>&1 | sed 's/^/  /' || true
+}
 
-  log_info ""
+status_memory() {
   log_info "=== Memory ==="
   free -h 2>/dev/null | sed 's/^/  /'
   local claude_mb
   claude_mb="$(ps -eo rss,cmd 2>/dev/null | grep -i claude | grep -v grep | awk '{sum+=$1} END {printf "%.0f", sum/1024+0}')"
   log_info "claude processes total: ${claude_mb:-0} MB (RSS, overlaps due to shared libraries — not purely additive)"
-  log_info "Claude Code's own supervisor stops idle sessions sooner when memory runs low (code.claude.com/docs/en/agent-view.md) — that's what the timer above is for."
-
-  log_info ""
-  local linger
-  linger="$(loginctl show-user "$USER" -p Linger --value 2>/dev/null || echo unknown)"
-  log_info "linger for $USER: $linger"
+  log_info "Claude Code's own supervisor stops idle sessions sooner when memory runs low (code.claude.com/docs/en/agent-view.md) — that's what the revive timer is for."
 }
 
 status_versions() {
@@ -182,9 +184,21 @@ action_status() {
   case "${1:-all}" in
     projects) status_projects ;;
     agents)   status_agents ;;
-    service)  status_service ;;
+    service)  status_revive_service ;;
+    timer)    status_revive_timer ;;
+    memory)   status_memory ;;
     versions) status_versions ;;
-    all)      status_projects; log_info ""; status_agents; log_info ""; status_service; log_info ""; status_versions ;;
-    *)        log_err "unknown status target: $1 (expected: projects|agents|service|versions|all)"; return 1 ;;
+    all)
+      status_projects; log_info ""
+      status_agents; log_info ""
+      status_revive_service; log_info ""
+      status_revive_timer; log_info ""
+      status_memory; log_info ""
+      status_versions
+      ;;
+    *)
+      log_err "unknown status target: $1 (expected: projects|agents|service|timer|memory|versions|all)"
+      return 1
+      ;;
   esac
 }

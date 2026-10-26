@@ -10,7 +10,7 @@ source "$LIB_DIR/common.sh"
 
 usage() {
   cat <<EOF
-Usage: $(basename "$0") [setup|status [projects|agents|service|versions]|update|new|delete|revive|info]
+Usage: $(basename "$0") [setup|status [projects|agents|service|timer|memory|versions]|update|new|delete|revive|info]
 
 Run without an argument for an interactive menu.
 EOF
@@ -171,17 +171,21 @@ status_menu() {
     printf '\nStatus\n'
     printf '  1) Projects overview\n'
     printf '  2) Background sessions\n'
-    printf '  3) systemd revive service\n'
-    printf '  4) Versions (what update can refresh)\n'
-    printf '  5) Everything\n'
+    printf '  3) Revive service (boot)\n'
+    printf '  4) Revive timer (every 15 min)\n'
+    printf '  5) Memory\n'
+    printf '  6) Versions (what update can refresh)\n'
+    printf '  7) Everything\n'
     printf '  b) Back\n'
     read -r -p 'Choose: ' choice
     case "$choice" in
       1) run_status projects ;;
       2) run_status agents ;;
       3) run_status service ;;
-      4) run_status versions ;;
-      5) run_status all ;;
+      4) run_status timer ;;
+      5) run_status memory ;;
+      6) run_status versions ;;
+      7) run_status all ;;
       b|B) break ;;
       *) log_warn "unknown choice: $choice" ;;
     esac
