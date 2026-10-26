@@ -5,7 +5,7 @@ check_project_dir() {
   local dir="$1" name
   name="$(basename "$dir")"
   if [ ! -d "$dir/.git" ]; then
-    printf '  %-22s not a git repo\n' "$name"
+    printf '  %-34s not a git repo\n' "$name"
     return
   fi
 
@@ -27,7 +27,7 @@ check_project_dir() {
     flags="$flags [settings.local.json not excluded from git]"
   fi
 
-  printf '  %-22s git: %-10s%s\n' "$name" "$git_label" "$flags"
+  printf '  %-34s git: %-10s%s\n' "$name" "$git_label" "$flags"
 }
 
 status_projects() {
@@ -36,7 +36,7 @@ status_projects() {
     local found=0
     for dir in "$PROJECTS_ROOT"/*/; do
       [ -d "$dir" ] || continue
-      [ "$found" -eq 0 ] && printf '  %-22s %s\n' "NAME" "STATUS"
+      [ "$found" -eq 0 ] && printf '  %-34s %s\n' "NAME" "STATUS"
       check_project_dir "${dir%/}"
       found=1
     done
