@@ -10,7 +10,7 @@ source "$LIB_DIR/common.sh"
 
 usage() {
   cat <<EOF
-Usage: $(basename "$0") [setup|status [projects|agents|service|versions]|update|new|delete|info]
+Usage: $(basename "$0") [setup|status [projects|agents|service|versions]|update|new|delete|revive|info]
 
 Run without an argument for an interactive menu.
 EOF
@@ -21,6 +21,7 @@ run_status() { source "$LIB_DIR/status.sh"; action_status "${1:-all}"; }
 run_update() { source "$LIB_DIR/update.sh"; action_update; }
 run_new()    { source "$LIB_DIR/new_project.sh"; action_new_project; }
 run_delete() { source "$LIB_DIR/delete_project.sh"; action_delete_project; }
+run_revive() { source "$LIB_DIR/revive.sh"; action_revive; }
 
 print_banner() {
   clear
@@ -47,7 +48,7 @@ surviving reboots on their own — so you can reach them from anywhere:
 phone, laptop, the Claude app, claude.ai. No SSH session needed to use
 them, only to run this tool itself.
 
-This tool has five actions:
+This tool has six actions:
 
   setup   Prepares this machine to run Claude Code background sessions
           permanently. Steps, each skipped if already in place:
@@ -112,6 +113,12 @@ This tool has five actions:
           else needs doing on the GitHub side, deleting a local clone
           doesn't touch the remote repo. You have to re-type the project
           name to confirm — this cannot be undone.
+
+  revive  Runs the deployed revive script right now, instead of waiting
+          for a reboot — for when a session died mid-uptime (a crash,
+          say) rather than from the VM restarting. Same logic the
+          systemd service uses at boot: checks every session's pid, and
+          `claude respawn`s whichever ones aren't actually alive.
 
 After setup, background sessions should show up automatically in the
 Claude app (or claude.ai) on any other device signed into the same
@@ -201,6 +208,7 @@ interactive_menu() {
     printf '  3) Update (Claude Code, packages, deployed scripts)\n'
     printf '  4) Create new project\n'
     printf '  5) Delete project\n'
+    printf '  6) Revive dead sessions\n'
     printf '  i) Info\n'
     printf '  q) Quit\n'
     read -r -p 'Choose: ' choice
@@ -210,6 +218,7 @@ interactive_menu() {
       3) run_update ;;
       4) run_new ;;
       5) run_delete ;;
+      6) run_revive ;;
       i|I) print_info ;;
       q|Q) break ;;
       *) log_warn "unknown choice: $choice" ;;
@@ -223,6 +232,7 @@ case "${1:-}" in
   update)     run_update ;;
   new)        run_new ;;
   delete)     run_delete ;;
+  revive)     run_revive ;;
   info)       print_info ;;
   -h|--help)  usage ;;
   "")         interactive_menu ;;

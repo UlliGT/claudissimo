@@ -14,18 +14,20 @@ Set it up once, and sessions survive reboots on their own.
     bin/claudissimo
 
 Shows a numbered menu: Initial setup, Check status, Update, Create new
-project, Info — all in the same terminal, no curses UI. Status opens its
-own submenu so you can look at projects, background sessions, or the
-systemd service on their own instead of one long dump.
+project, Delete project, Revive dead sessions, Info — all in the same
+terminal, no curses UI. Status opens its own submenu so you can look at
+projects, background sessions, or the systemd service on their own
+instead of one long dump.
 
 Each action is also available directly as a subcommand — handy for
 scripting, e.g. in a cron job:
 
     bin/claudissimo setup
-    bin/claudissimo status [projects|agents|service]
+    bin/claudissimo status [projects|agents|service|versions]
     bin/claudissimo update
     bin/claudissimo new
     bin/claudissimo delete   # still asks you to re-type the project name
+    bin/claudissimo revive
     bin/claudissimo info
 
 Projects live under `~/claude-projects` by default; override with
@@ -79,6 +81,11 @@ curses UI, output stays in your normal scrollback:
    the GitHub side, deleting a local clone doesn't touch the remote repo.
    Asks you to re-type the project name to confirm — this cannot be
    undone.
+6. **Revive dead sessions** — runs the deployed revive script right now,
+   instead of waiting for a reboot: for when a session died mid-uptime
+   (a crash, say) rather than from the VM restarting. Same logic the
+   systemd service uses at boot — checks every session's pid, and
+   `claude respawn`s whichever ones aren't actually alive.
 
 ## Troubleshooting
 
