@@ -29,6 +29,7 @@ scripting, e.g. in a cron job:
     bin/claudissimo delete   # still asks you to re-type the project name
     bin/claudissimo revive
     bin/claudissimo remove
+    bin/claudissimo start
     bin/claudissimo info
 
 Projects live under `~/claude-projects` by default; override with
@@ -36,7 +37,7 @@ Projects live under `~/claude-projects` by default; override with
 
 ## Functions
 
-This tool offers seven actions through a one-line interactive menu — no
+This tool offers eight actions through a one-line interactive menu — no
 curses UI, output stays in your normal scrollback:
 
 1. **Initial setup** — installs the pieces needed to run background sessions
@@ -105,6 +106,12 @@ curses UI, output stays in your normal scrollback:
    make one stay gone. Warns first if it's the only session pointed at
    its project folder, since removing it leaves that project with no
    background session at all.
+8. **Start session** — starts a background session in a project
+   directory that already exists but has no session left (the last one
+   got removed or never came back). Unlike `new`, doesn't touch git,
+   `settings.local.json`, or the trust prompt — the project already
+   went through that once. Warns if the project already has a session
+   and asks before starting another.
 
 ## Troubleshooting
 
