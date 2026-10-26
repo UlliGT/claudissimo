@@ -2,30 +2,31 @@
 # Action 2: read-only status report. Changes nothing.
 
 check_project_dir() {
-  local dir="$1"
-  printf '%s\n' "$(basename "$dir")"
+  local dir="$1" name
+  name="$(basename "$dir")"
   if [ ! -d "$dir/.git" ]; then
-    printf '  not a git repo\n'
+    printf '  %-22s not a git repo\n' "$name"
     return
   fi
-  local bg_ok="no"
-  if [ -f "$dir/.claude/settings.local.json" ] \
-     && grep -q '"bgIsolation"[[:space:]]*:[[:space:]]*"none"' "$dir/.claude/settings.local.json"; then
-    bg_ok="yes"
-  fi
-  printf '  bgIsolation none set: %s\n' "$bg_ok"
-  local excluded="no"
-  if [ -f "$dir/.git/info/exclude" ] && grep -qx '.claude/settings.local.json' "$dir/.git/info/exclude"; then
-    excluded="yes"
-  fi
-  printf '  settings.local.json excluded from git: %s\n' "$excluded"
-  local git_status
+
+  local git_status git_label
   git_status="$(git -C "$dir" status --porcelain 2>/dev/null)"
   if [ -z "$git_status" ]; then
-    printf '  git status: clean\n'
+    git_label="clean"
   else
-    printf '  git status: dirty (%s changed file(s))\n' "$(printf '%s\n' "$git_status" | grep -c .)"
+    git_label="dirty($(printf '%s\n' "$git_status" | grep -c .))"
   fi
+
+  local flags=""
+  if ! { [ -f "$dir/.claude/settings.local.json" ] \
+       && grep -q '"bgIsolation"[[:space:]]*:[[:space:]]*"none"' "$dir/.claude/settings.local.json"; }; then
+    flags="$flags [bgIsolation not set — background sessions may use a worktree]"
+  fi
+  if ! { [ -f "$dir/.git/info/exclude" ] && grep -qx '.claude/settings.local.json' "$dir/.git/info/exclude"; }; then
+    flags="$flags [settings.local.json not excluded from git]"
+  fi
+
+  printf '  %-22s git: %-10s%s\n' "$name" "$git_label" "$flags"
 }
 
 status_projects() {
@@ -34,6 +35,7 @@ status_projects() {
     local found=0
     for dir in "$PROJECTS_ROOT"/*/; do
       [ -d "$dir" ] || continue
+      [ "$found" -eq 0 ] && printf '  %-22s %s\n' "NAME" "STATUS"
       check_project_dir "${dir%/}"
       found=1
     done
@@ -52,17 +54,18 @@ status_agents() {
     if [ "$count" -eq 0 ]; then
       log_info "(no sessions)"
     else
+      printf '  %-10s %-9s %-7s %s\n' "ID" "STATE" "ALIVE" "PROJECT"
       printf '%s' "$agents_json" | jq -r '.[] | "\(.id)\t\(.state)\t\(.pid // "null")\t\(.cwd)"' \
       | while IFS=$'\t' read -r id state pid cwd; do
           local alive="dead"
           is_claude_pid_alive "$pid" && alive="alive"
-          local flags=""
-          [ "$pid" = "null" ] && flags="$flags [pid null]"
+          local proj="$cwd" flags=""
           case "$cwd" in
-            "$PROJECTS_ROOT"/*) ;;
+            "$PROJECTS_ROOT"/*) proj="${cwd#"$PROJECTS_ROOT"/}" ;;
             *) flags="$flags [cwd outside $PROJECTS_ROOT — possible worktree]" ;;
           esac
-          printf '  %s  state=%s  pid=%s  process=%s%s\n    cwd=%s\n' "$id" "$state" "$pid" "$alive" "$flags" "$cwd"
+          [ "$pid" = "null" ] && flags="$flags [pid null]"
+          printf '  %-10s %-9s %-7s %s%s\n' "$id" "$state" "$alive" "$proj" "$flags"
         done
     fi
   else
