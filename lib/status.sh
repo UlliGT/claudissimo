@@ -22,7 +22,8 @@ check_project_dir() {
        && grep -q '"bgIsolation"[[:space:]]*:[[:space:]]*"none"' "$dir/.claude/settings.local.json"; }; then
     flags="$flags [bgIsolation not set — background sessions may use a worktree]"
   fi
-  if ! { [ -f "$dir/.git/info/exclude" ] && grep -qx '.claude/settings.local.json' "$dir/.git/info/exclude"; }; then
+  if [ -f "$dir/.claude/settings.local.json" ] \
+     && ! git -C "$dir" check-ignore -q .claude/settings.local.json 2>/dev/null; then
     flags="$flags [settings.local.json not excluded from git]"
   fi
 
