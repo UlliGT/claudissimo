@@ -152,7 +152,11 @@ This tool has eight actions:
           removed or never came back). Unlike `new`, doesn't touch git,
           `settings.local.json`, or the trust prompt — the project
           already went through that once. Warns if the project already
-          has a session and asks before starting another.
+          has a session and asks before starting another — with
+          `bgIsolation: none`, a second session edits the exact same
+          files directly, no worktree isolation; Claude Code's own
+          docs don't protect against two sessions editing the same
+          file concurrently.
 
 After setup, background sessions should show up automatically in the
 Claude app (or claude.ai) on any other device signed into the same

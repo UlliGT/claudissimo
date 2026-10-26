@@ -111,7 +111,10 @@ curses UI, output stays in your normal scrollback:
    got removed or never came back). Unlike `new`, doesn't touch git,
    `settings.local.json`, or the trust prompt — the project already
    went through that once. Warns if the project already has a session
-   and asks before starting another.
+   and asks before starting another — with `bgIsolation: none`, a
+   second session edits the exact same files directly, no worktree
+   isolation; Claude Code's own docs don't protect against two
+   sessions editing the same file concurrently.
 
 ## Troubleshooting
 
