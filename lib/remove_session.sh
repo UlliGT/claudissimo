@@ -31,9 +31,9 @@ action_remove_session() {
     done
 
   local id
-  read -r -p "Session id to remove: " id
+  read -r -p "Session id to remove (empty to cancel/back): " id
   if [ -z "$id" ]; then
-    log_err "empty id — aborting"
+    log_skip "cancelled"
     return 0
   fi
 
