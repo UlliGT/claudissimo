@@ -51,7 +51,13 @@ action_remove_session() {
   local same_cwd_count
   same_cwd_count="$(printf '%s' "$agents_json" | jq --arg cwd "$cwd" '[.[] | select(.cwd == $cwd)] | length')"
   if [ "$same_cwd_count" -le 1 ]; then
-    log_warn "this is the only session for $cwd — removing it leaves that project with no background session at all"
+    log_warn "This is the only session for $cwd."
+    log_warn "'claude rm' deletes its conversation transcript from disk — not a"
+    log_warn "soft delete, unrecoverable. Everything discussed, any unsaved"
+    log_warn "reasoning or in-progress work in this conversation is gone for good."
+    log_warn "Project memory (~/.claude/projects/.../memory/) is untouched and"
+    log_warn "separate — a future session here still has that, just not this chat."
+    log_warn "Use 'start' afterward for a fresh session in this project folder."
   fi
 
   local confirm

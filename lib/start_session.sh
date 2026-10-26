@@ -37,10 +37,14 @@ action_start_session() {
     existing="$(claude agents --json --all 2>/dev/null \
       | jq -r --arg cwd "$real_target" '.[] | select(.cwd == $cwd) | "\(.id) (\(.state))"')"
     if [ -n "$existing" ]; then
-      log_warn "there's already at least one session for this project:"
+      log_warn "This project already has a running session — starting a second one is risky:"
       printf '%s\n' "$existing" | sed 's/^/  /'
+      log_warn "bgIsolation is \"none\": both sessions edit the exact same files"
+      log_warn "directly, no worktree isolation. Claude Code's own docs don't"
+      log_warn "protect against two sessions editing the same file at the same"
+      log_warn "time — you can lose work this way."
       local confirm
-      read -r -p "Start another one anyway? [y/N] " confirm
+      read -r -p "Start a second session anyway? [y/N] " confirm
       if [[ ! "$confirm" =~ ^[Yy]$ ]]; then
         log_skip "cancelled"
         return 0
