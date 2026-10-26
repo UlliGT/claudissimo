@@ -28,6 +28,7 @@ scripting, e.g. in a cron job:
     bin/claudissimo new
     bin/claudissimo delete   # still asks you to re-type the project name
     bin/claudissimo revive
+    bin/claudissimo remove
     bin/claudissimo info
 
 Projects live under `~/claude-projects` by default; override with
@@ -35,7 +36,7 @@ Projects live under `~/claude-projects` by default; override with
 
 ## Functions
 
-This tool offers five actions through a one-line interactive menu — no
+This tool offers seven actions through a one-line interactive menu — no
 curses UI, output stays in your normal scrollback:
 
 1. **Initial setup** — installs the pieces needed to run background sessions
@@ -91,6 +92,13 @@ curses UI, output stays in your normal scrollback:
    (a crash, say) rather than from the VM restarting. Same logic the
    systemd service uses at boot — checks every session's pid, and
    `claude respawn`s whichever ones aren't actually alive.
+7. **Remove session** — lists sessions and lets you pick one to delete
+   from Claude Code's own list (`claude rm`) — not just stop it. A
+   merely stopped session is still listed and still gets picked up and
+   respawned by the revive script/timer; this is the documented way to
+   make one stay gone. Warns first if it's the only session pointed at
+   its project folder, since removing it leaves that project with no
+   background session at all.
 
 ## Troubleshooting
 

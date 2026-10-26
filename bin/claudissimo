@@ -10,7 +10,7 @@ source "$LIB_DIR/common.sh"
 
 usage() {
   cat <<EOF
-Usage: $(basename "$0") [setup|status [projects|agents|service|timer|memory|versions]|update|new|delete|revive|info]
+Usage: $(basename "$0") [setup|status [projects|agents|service|timer|memory|versions]|update|new|delete|revive|remove|info]
 
 Run without an argument for an interactive menu.
 EOF
@@ -22,6 +22,7 @@ run_update() { source "$LIB_DIR/update.sh"; action_update; }
 run_new()    { source "$LIB_DIR/new_project.sh"; action_new_project; }
 run_delete() { source "$LIB_DIR/delete_project.sh"; action_delete_project; }
 run_revive() { source "$LIB_DIR/revive.sh"; action_revive; }
+run_remove() { source "$LIB_DIR/remove_session.sh"; action_remove_session; }
 
 print_banner() {
   clear
@@ -48,7 +49,7 @@ surviving reboots on their own — so you can reach them from anywhere:
 phone, laptop, the Claude app, claude.ai. No SSH session needed to use
 them, only to run this tool itself.
 
-This tool has six actions:
+This tool has seven actions:
 
   setup   Prepares this machine to run Claude Code background sessions
           permanently. Steps, each skipped if already in place:
@@ -129,6 +130,14 @@ This tool has six actions:
           say) rather than from the VM restarting. Same logic the
           systemd service uses at boot: checks every session's pid, and
           `claude respawn`s whichever ones aren't actually alive.
+
+  remove  Lists sessions and lets you pick one to delete from Claude
+          Code's own list (`claude rm`) — not just stop it. A merely
+          stopped session is still listed and still gets picked up and
+          respawned by the revive script/timer; this is the documented
+          way to make one stay gone. Warns first if it's the only
+          session pointed at its project folder, since removing it
+          leaves that project with no background session at all.
 
 After setup, background sessions should show up automatically in the
 Claude app (or claude.ai) on any other device signed into the same
@@ -225,6 +234,7 @@ interactive_menu() {
     printf '  4) Create new project\n'
     printf '  5) Delete project\n'
     printf '  6) Revive dead sessions\n'
+    printf '  7) Remove session\n'
     printf '  i) Info\n'
     printf '  q) Quit\n'
     read -r -p 'Choose: ' choice
@@ -235,6 +245,7 @@ interactive_menu() {
       4) run_new ;;
       5) run_delete ;;
       6) run_revive ;;
+      7) run_remove ;;
       i|I) print_info ;;
       q|Q) break ;;
       *) log_warn "unknown choice: $choice" ;;
@@ -249,6 +260,7 @@ case "${1:-}" in
   new)        run_new ;;
   delete)     run_delete ;;
   revive)     run_revive ;;
+  remove)     run_remove ;;
   info)       print_info ;;
   -h|--help)  usage ;;
   "")         interactive_menu ;;
