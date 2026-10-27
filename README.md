@@ -33,7 +33,7 @@ scripting, e.g. in a cron job:
     bin/claudissimo revive
     bin/claudissimo remove
     bin/claudissimo start
-    bin/claudissimo task [add|list|remove]
+    bin/claudissimo task [add|list|edit|remove]
     bin/claudissimo info
 
 Projects live under `~/claude-projects` by default; override with
@@ -123,16 +123,19 @@ curses UI, output stays in your normal scrollback:
    second session edits the exact same files directly, no worktree
    isolation; Claude Code's own docs don't protect against two
    sessions editing the same file concurrently.
-9. **Scheduled tasks** — add, list, or remove a recurring one-shot
-   task: a systemd timer running `claude -p` (non-interactive, prompt
-   piped via stdin — no shell-quoting issues) on a fixed interval in a
-   chosen project. Same proven pattern as the revive timer (plain
-   oneshot service, no `RemainAfterExit`, so it can actually be
-   re-triggered). Each run is a SHORT-LIVED session: no connection to
-   any other chat, fresh context every time — it can read/write files,
-   use git, and send mail (msmtp is configured) if asked to, but it
-   cannot see or post into any currently running background session
-   for that project.
+9. **Scheduled tasks** — add, list, edit, or remove a recurring
+   one-shot task: a systemd timer running `claude -p` (non-interactive,
+   prompt piped via stdin — no shell-quoting issues) on a fixed
+   interval in a chosen project. Same proven pattern as the revive
+   timer (plain oneshot service, no `RemainAfterExit`, so it can
+   actually be re-triggered). Each run is a SHORT-LIVED session: no
+   connection to any other chat, fresh context every time — it can
+   read/write files, use git, and send mail (msmtp is configured) if
+   asked to, but it cannot see or post into any currently running
+   background session for that project. Edit changes the interval
+   and/or prompt and rewrites the timer file — any interval works
+   (hours only, no upper bound, e.g. 168 for weekly), but a one-off
+   `OnCalendar=` schedule set by hand is not preserved across an edit.
 
 ## Troubleshooting
 
@@ -174,6 +177,6 @@ use this check.
 
 This whole tool builds on Claude Code's "Agent view" (background sessions,
 `claude --bg`, Remote Control) — a research preview from Anthropic, not a
-finished, generally released feature, as of 2026-10-26 on Claude Code
-2.1.310. It can change behavior or break between Claude Code versions
+finished, generally released feature, as of 2026-10-27 on Claude Code
+2.1.311. It can change behavior or break between Claude Code versions
 with no notice from this tool.

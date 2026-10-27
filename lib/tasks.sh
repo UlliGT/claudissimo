@@ -17,8 +17,9 @@ task_runner_content() {
   local project_dir="$1" prompt_file="$2"
   cat <<EOF
 #!/bin/bash
+export PATH=\$HOME/.local/bin:/usr/bin:/bin
 cd "$project_dir" || exit 1
-cat "$prompt_file" | claude -p
+printf '%s %s' "$TASK_PROMPT_PREFIX" "\$(cat "$prompt_file")" | claude -p --permission-mode auto
 EOF
 }
 
@@ -41,6 +42,7 @@ task_timer_content() {
 Description=Timer for claudissimo scheduled task "$name"
 
 [Timer]
+OnActiveSec=2min
 OnUnitActiveSec=${hours}h
 Unit=claudissimo-task-$name.service
 
@@ -120,7 +122,7 @@ action_task_add() {
   mkdir -p "$TASKS_DIR"
   local prompt_file="$TASKS_DIR/$name.prompt"
   local runner="$TASKS_DIR/$name.sh"
-  printf '%s %s\n' "$TASK_PROMPT_PREFIX" "$prompt" > "$prompt_file"
+  printf '%s\n' "$prompt" > "$prompt_file"
 
   printf '%s\n' "$(task_runner_content "$project_dir" "$prompt_file")" > "$runner"
   chmod 755 "$runner"
@@ -156,6 +158,50 @@ action_task_list() {
       | awk 'NR==2 {print $1, $2, $3, $4}')"
     printf '  %-20s %-10s %s\n' "$name" "$active" "${next:-?}"
   done <<< "$names"
+}
+
+action_task_edit() {
+  log_info "=== Edit scheduled task ==="
+  action_task_list
+  local name
+  read -r -p "Task name to edit (empty to cancel/back): " name
+  if [ -z "$name" ]; then
+    log_skip "cancelled"
+    return 0
+  fi
+  local timer_file="$TASKS_UNIT_DIR/claudissimo-task-$name.timer"
+  local prompt_file="$TASKS_DIR/$name.prompt"
+  if [ ! -f "$timer_file" ]; then
+    log_err "no task named '$name'"
+    return 0
+  fi
+
+  local current_hours
+  current_hours="$(sed -nE 's/^OnUnitActiveSec=([0-9]+)h$/\1/p' "$timer_file")"
+  log_info "Current interval: every ${current_hours:-?}h"
+  local hours
+  read -r -p "New interval in hours (empty to keep current): " hours
+  if [ -n "$hours" ]; then
+    if ! [[ "$hours" =~ ^[0-9]+$ ]] || [ "$hours" -lt 1 ]; then
+      log_warn "needs to be a positive whole number of hours — interval not changed"
+    else
+      current_hours="$hours"
+    fi
+  fi
+
+  log_info "Current prompt:"
+  log_info "  $(cat "$prompt_file" 2>/dev/null)"
+  local prompt
+  read -r -p "New prompt (empty to keep current): " prompt
+  if [ -n "$prompt" ]; then
+    printf '%s\n' "$prompt" > "$prompt_file"
+    log_ok "prompt updated"
+  fi
+
+  printf '%s\n' "$(task_timer_content "$name" "$current_hours")" > "$timer_file"
+  systemctl --user daemon-reload
+  systemctl --user restart "claudissimo-task-$name.timer"
+  log_ok "task '$name' updated: runs every ${current_hours}h"
 }
 
 action_task_remove() {
