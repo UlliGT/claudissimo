@@ -297,13 +297,15 @@ setup_menu() {
 projects_menu() {
   while true; do
     printf '\nProjects\n'
-    printf '  1) Create new project\n'
-    printf '  2) Delete project\n'
+    printf '  1) Overview\n'
+    printf '  2) Create new project\n'
+    printf '  3) Delete project\n'
     printf '  b) Back\n'
     read -r -p 'Choose: ' choice
     case "$choice" in
-      1) run_new ;;
-      2) run_delete ;;
+      1) run_status projects ;;
+      2) run_new ;;
+      3) run_delete ;;
       b|B) break ;;
       *) log_warn "unknown choice: $choice" ;;
     esac
