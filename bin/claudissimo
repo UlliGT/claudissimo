@@ -48,7 +48,7 @@ surviving reboots on their own — so you can reach them from anywhere:
 phone, laptop, the Claude app, claude.ai. No SSH session needed to use
 them, only to run this tool itself.
 
-This tool has eight actions:
+This tool has nine actions:
 
   setup   Prepares this machine to run Claude Code background sessions
           permanently. Steps, each skipped if already in place:
@@ -161,6 +161,17 @@ This tool has eight actions:
           docs don't protect against two sessions editing the same
           file concurrently.
 
+  task    Add, list, or remove a recurring one-shot task: a systemd
+          timer running `claude -p` (non-interactive, prompt piped via
+          stdin — no shell-quoting issues) on a fixed interval in a
+          chosen project. Same proven pattern as the revive timer
+          (plain oneshot service, no RemainAfterExit, so it can
+          actually be re-triggered). Each run is a SHORT-LIVED session:
+          no connection to any other chat, fresh context every time —
+          it can read/write files, use git, and send mail (msmtp is
+          configured) if asked to, but it cannot see or post into any
+          currently running background session for that project.
+
 After setup, background sessions should show up automatically in the
 Claude app (or claude.ai) on any other device signed into the same
 account — no extra step needed. If one doesn't show up:
@@ -265,32 +276,74 @@ EOF
   [[ "$reply" =~ ^[Yy]$ ]]
 }
 
-interactive_menu() {
-  print_banner
+setup_menu() {
   while true; do
-    printf '\nClaudissimo\n'
+    printf '\nSetup & maintenance\n'
     printf '  1) Initial setup\n'
     printf '  2) Check status\n'
     printf '  3) Update (Claude Code, packages, deployed scripts)\n'
-    printf '  4) Create new project\n'
-    printf '  5) Delete project\n'
-    printf '  6) Revive dead sessions\n'
-    printf '  7) Remove session\n'
-    printf '  8) Start session (existing project)\n'
-    printf '  9) Scheduled tasks\n'
-    printf '  i) Info\n'
-    printf '  q) Quit\n'
+    printf '  b) Back\n'
     read -r -p 'Choose: ' choice
     case "$choice" in
       1) confirm_setup && run_setup || log_skip "setup cancelled" ;;
       2) status_menu ;;
       3) run_update ;;
-      4) run_new ;;
-      5) run_delete ;;
-      6) run_revive ;;
-      7) run_remove ;;
-      8) run_start ;;
-      9) tasks_menu ;;
+      b|B) break ;;
+      *) log_warn "unknown choice: $choice" ;;
+    esac
+  done
+}
+
+projects_menu() {
+  while true; do
+    printf '\nProjects\n'
+    printf '  1) Create new project\n'
+    printf '  2) Delete project\n'
+    printf '  b) Back\n'
+    read -r -p 'Choose: ' choice
+    case "$choice" in
+      1) run_new ;;
+      2) run_delete ;;
+      b|B) break ;;
+      *) log_warn "unknown choice: $choice" ;;
+    esac
+  done
+}
+
+sessions_menu() {
+  while true; do
+    printf '\nSessions\n'
+    printf '  1) Revive dead sessions\n'
+    printf '  2) Remove session\n'
+    printf '  3) Start session (existing project)\n'
+    printf '  4) Scheduled tasks\n'
+    printf '  b) Back\n'
+    read -r -p 'Choose: ' choice
+    case "$choice" in
+      1) run_revive ;;
+      2) run_remove ;;
+      3) run_start ;;
+      4) tasks_menu ;;
+      b|B) break ;;
+      *) log_warn "unknown choice: $choice" ;;
+    esac
+  done
+}
+
+interactive_menu() {
+  print_banner
+  while true; do
+    printf '\nClaudissimo\n'
+    printf '  1) Setup & maintenance\n'
+    printf '  2) Projects\n'
+    printf '  3) Sessions\n'
+    printf '  i) Info\n'
+    printf '  q) Quit\n'
+    read -r -p 'Choose: ' choice
+    case "$choice" in
+      1) setup_menu ;;
+      2) projects_menu ;;
+      3) sessions_menu ;;
       i|I) print_info ;;
       q|Q) break ;;
       *) log_warn "unknown choice: $choice" ;;

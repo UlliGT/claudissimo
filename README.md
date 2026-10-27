@@ -13,12 +13,14 @@ Set it up once, and sessions survive reboots on their own.
 
     bin/claudissimo
 
-Shows a numbered menu: Initial setup, Check status, Update, Create new
-project, Delete project, Revive dead sessions, Remove session, Start
-session, Info — all in the same terminal, no curses UI. Status opens
-its own submenu so you can look at projects, background sessions, the
+Shows a numbered menu grouped into three submenus — **Setup &
+maintenance** (initial setup, status, update), **Projects** (create,
+delete), **Sessions** (revive, remove, start, scheduled tasks) — plus
+Info, all in the same terminal, no curses UI. Status opens its own
+further submenu so you can look at projects, background sessions, the
 boot revive service, the periodic revive timer, memory, or versions on
-their own instead of one long dump.
+their own instead of one long dump; scheduled tasks likewise has its
+own add/list/remove submenu.
 
 Each action is also available directly as a subcommand — handy for
 scripting, e.g. in a cron job:
@@ -31,6 +33,7 @@ scripting, e.g. in a cron job:
     bin/claudissimo revive
     bin/claudissimo remove
     bin/claudissimo start
+    bin/claudissimo task [add|list|remove]
     bin/claudissimo info
 
 Projects live under `~/claude-projects` by default; override with
@@ -38,7 +41,7 @@ Projects live under `~/claude-projects` by default; override with
 
 ## Functions
 
-This tool offers eight actions through a one-line interactive menu — no
+This tool offers nine actions through a one-line interactive menu — no
 curses UI, output stays in your normal scrollback:
 
 1. **Initial setup** — installs the pieces needed to run background sessions
@@ -120,6 +123,16 @@ curses UI, output stays in your normal scrollback:
    second session edits the exact same files directly, no worktree
    isolation; Claude Code's own docs don't protect against two
    sessions editing the same file concurrently.
+9. **Scheduled tasks** — add, list, or remove a recurring one-shot
+   task: a systemd timer running `claude -p` (non-interactive, prompt
+   piped via stdin — no shell-quoting issues) on a fixed interval in a
+   chosen project. Same proven pattern as the revive timer (plain
+   oneshot service, no `RemainAfterExit`, so it can actually be
+   re-triggered). Each run is a SHORT-LIVED session: no connection to
+   any other chat, fresh context every time — it can read/write files,
+   use git, and send mail (msmtp is configured) if asked to, but it
+   cannot see or post into any currently running background session
+   for that project.
 
 ## Troubleshooting
 
