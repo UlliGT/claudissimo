@@ -30,7 +30,11 @@ run_task_remove() { source "$LIB_DIR/tasks.sh"; action_task_remove; }
 
 print_banner() {
   clear
-  echo -e "\033[1;36mCLAUDISSIMO\033[0m"
+  echo -e "\033[1;36m        __                ___           _               \033[0m"
+  echo -e "\033[1;36m  _____/ /___ ___  ______/ (_)_________(_)___ ___  ____ \033[0m"
+  echo -e "\033[1;36m / ___/ / __ \`/ / / / __  / / ___/ ___/ / __ \`__ \\\\/ __ \\\\\033[0m"
+  echo -e "\033[1;36m/ /__/ / /_/ / /_/ / /_/ / (__  |__  ) / / / / / / /_/ /\033[0m"
+  echo -e "\033[1;36m\\\\___/_/\\\\__,_/\\\\__,_/\\\\__,_/_/____/____/_/_/ /_/ /_/\\\\____/ \033[0m"
   printf '\nClaudissimo is a tiny management tool to run Claude Code agents\npermanently in the background on this host. The agents then get\ncontrolled remotely from other devices, e.g. the Claude app on Windows,\nmacOS, Smartphones or https://claude.ai. Pick "i" for the full picture.\n'
 }
 
