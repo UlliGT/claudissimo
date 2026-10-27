@@ -153,9 +153,13 @@ action_task_list() {
     [ -n "$name" ] || continue
     local active="no"
     systemctl --user is-active "claudissimo-task-$name.timer" >/dev/null 2>&1 && active="yes"
-    local next
-    next="$(systemctl --user list-timers "claudissimo-task-$name.timer" --no-pager 2>/dev/null \
-      | awk 'NR==2 {print $1, $2, $3, $4}')"
+    local next_line next
+    next_line="$(systemctl --user list-timers "claudissimo-task-$name.timer" --no-pager 2>/dev/null | awk 'NR==2')"
+    if [ "$(awk '{print $1}' <<< "$next_line")" = "-" ]; then
+      next="- (task currently running)"
+    else
+      next="$(awk '{print $1, $2, $3, $4}' <<< "$next_line")"
+    fi
     local project_dir project
     project_dir="$(sed -nE 's/^Description=.*\((.*)\)$/\1/p' "$TASKS_UNIT_DIR/claudissimo-task-$name.service" 2>/dev/null)"
     project="$(basename "${project_dir:-?}")"
