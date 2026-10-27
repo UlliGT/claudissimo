@@ -113,7 +113,7 @@ action_task_add() {
   log_info "git, and send mail (if msmtp is configured); it cannot see or post"
   log_info "into any currently running background session for this project."
   local prompt
-  read -r -p "Prompt: " prompt
+  read -e -r -p "Prompt: " prompt
   if [ -z "$prompt" ]; then
     log_err "empty prompt — aborting"
     return 0
@@ -147,7 +147,7 @@ action_task_list() {
     log_info "(none)"
     return 0
   fi
-  printf '  %-20s %-10s %s\n' "NAME" "ACTIVE" "NEXT RUN"
+  printf '  %-20s %-16s %-10s %s\n' "NAME" "PROJECT" "ACTIVE" "NEXT RUN"
   local name
   while IFS= read -r name; do
     [ -n "$name" ] || continue
@@ -156,7 +156,10 @@ action_task_list() {
     local next
     next="$(systemctl --user list-timers "claudissimo-task-$name.timer" --no-pager 2>/dev/null \
       | awk 'NR==2 {print $1, $2, $3, $4}')"
-    printf '  %-20s %-10s %s\n' "$name" "$active" "${next:-?}"
+    local project_dir project
+    project_dir="$(sed -nE 's/^Description=.*\((.*)\)$/\1/p' "$TASKS_UNIT_DIR/claudissimo-task-$name.service" 2>/dev/null)"
+    project="$(basename "${project_dir:-?}")"
+    printf '  %-20s %-16s %-10s %s\n' "$name" "$project" "$active" "${next:-?}"
   done <<< "$names"
 }
 
@@ -192,7 +195,7 @@ action_task_edit() {
   log_info "Current prompt:"
   log_info "  $(cat "$prompt_file" 2>/dev/null)"
   local prompt
-  read -r -p "New prompt (empty to keep current): " prompt
+  read -e -r -p "New prompt (empty to keep current): " prompt
   if [ -n "$prompt" ]; then
     printf '%s\n' "$prompt" > "$prompt_file"
     log_ok "prompt updated"
