@@ -11,7 +11,7 @@
 
 TASKS_DIR="$HOME/.config/claudissimo/tasks"
 TASKS_UNIT_DIR="$HOME/.config/systemd/user"
-TASK_PROMPT_PREFIX="This is a short-lived, one-off Claude Code session — it has no connection to any other chat or conversation history, and nothing it does here is visible in any other session. It can read and write files in this project directory, use git, and send mail (msmtp is configured) if asked to. It cannot post into, or see, any currently running background session for this project. Task:"
+TASK_PROMPT_PREFIX="This is a short-lived, one-off Claude Code session — it has no connection to any other chat or conversation history, and nothing it does here is visible in any other session. It can read and write files in this project directory, use git, and send mail (msmtp is configured) if asked to — when composing a mail, always put a MIME-Version: 1.0 and Content-Type: text/plain; charset=UTF-8 header in it, otherwise umlauts get garbled on arrival. It cannot post into, or see, any currently running background session for this project. Task:"
 
 task_runner_content() {
   local project_dir="$1" prompt_file="$2"
@@ -42,7 +42,6 @@ task_timer_content() {
 Description=Timer for claudissimo scheduled task "$name"
 
 [Timer]
-OnActiveSec=2min
 OnUnitActiveSec=${hours}h
 Unit=claudissimo-task-$name.service
 
@@ -134,9 +133,10 @@ action_task_add() {
 
   systemctl --user daemon-reload
   systemctl --user enable --now "claudissimo-task-$name.timer"
+  systemctl --user start --no-block "claudissimo-task-$name.service"
 
   log_ok "task '$name' created: runs every ${hours}h in $project_dir"
-  log_info "test it right now with: systemctl --user start claudissimo-task-$name.service"
+  log_info "starting it once now, in the background, to give OnUnitActiveSec a reference point"
 }
 
 action_task_list() {
