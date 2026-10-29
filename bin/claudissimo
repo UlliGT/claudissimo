@@ -201,6 +201,16 @@ id — so matching by name with `pgrep` gives false positives. The only
 reliable check is reading the `pid` from `claude agents --json --all` and
 confirming `/proc/<pid>/cmdline` still belongs to a `claude` process.
 
+Why not Docker: the actual mechanism this tool relies on is systemd
+user services plus `loginctl` linger — that's what survives a reboot
+with no login needed, and timers are what give scheduled tasks their
+persistence too. Neither maps cleanly onto a container: a
+containerized systemd needs privileges most hosts don't want to
+grant, and project directories would need full bind-mounts back onto
+the host anyway, defeating the isolation a container is supposed to
+buy in the first place. A plain `git clone` of this repo already
+gives easy distribution without any of that.
+
 Tested on Ubuntu/Debian. Everything except the package install in
 `setup` (which uses `apt-get`) should work on any systemd-based Linux
 with `loginctl` linger support; on other distros, install jq/git/curl

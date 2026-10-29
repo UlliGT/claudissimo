@@ -168,6 +168,18 @@ false positives. The only reliable check is reading the `pid` from
 belongs to a `claude` process. Both the revive script and the status action
 use this check.
 
+## Why not Docker
+
+The actual mechanism this tool relies on is systemd user services plus
+`loginctl` linger — that's what survives a reboot with no login needed,
+and timers are what give scheduled tasks their persistence too. Neither
+maps cleanly onto a container: a containerized systemd needs privileges
+most hosts don't want to grant, and project directories would need full
+bind-mounts back onto the host anyway, which defeats the isolation a
+container is supposed to buy in the first place. A plain `git clone` of
+this repo already gives easy distribution without any of that — no
+image to build or maintain.
+
 ## Requirements
 
 - Tested on **Ubuntu/Debian**. `setup` installs missing packages via
