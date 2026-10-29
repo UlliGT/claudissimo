@@ -5,7 +5,10 @@ their projects on an Ubuntu/Debian machine to run permanently. You then
 remote control them from any other device using the Claude app or website.
 This way, you're able to work on code projects on the go while the agents
 live on e.g. a VM somewhere and you do not have to leave your laptop on.
-Set it up once, and sessions survive reboots on their own.
+Set it up once, and sessions survive reboots on their own. On top of
+live sessions, it can also run recurring one-off tasks on their own
+schedule (e.g. a daily summary mailed to you) — independent of any
+session being open or even alive.
 
 ![claudissimo's menu](docs/screenshot.png)
 

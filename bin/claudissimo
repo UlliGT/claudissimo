@@ -47,7 +47,10 @@ You're looking at the info screen of claudissimo, running right here on
 this host. It keeps Claude Code background sessions alive permanently —
 surviving reboots on their own — so you can reach them from anywhere:
 phone, laptop, the Claude app, claude.ai. No SSH session needed to use
-them, only to run this tool itself.
+them, only to run this tool itself. On top of live sessions, it can
+also run recurring one-off tasks on their own schedule (e.g. a daily
+summary mailed to you) — independent of any session being open or
+even alive.
 
 This tool has nine actions:
 
