@@ -105,7 +105,12 @@ curses UI, output stays in your normal scrollback:
    instead of waiting for a reboot: for when a session died mid-uptime
    (a crash, say) rather than from the VM restarting. Same logic the
    systemd service uses at boot — checks every session's pid, and
-   `claude respawn`s whichever ones aren't actually alive.
+   `claude respawn`s whichever ones aren't actually alive. It also
+   checks every scheduled task's timer and kicks its service once if
+   the timer has no computed next run — a reboot wipes
+   `OnUnitActiveSec`'s reference point (it only lives in the current
+   systemd user instance), so every scheduled task would otherwise sit
+   idle after a reboot until manually restarted.
 7. **Remove session** — lists sessions and lets you pick one to delete
    from Claude Code's own list (`claude rm`) — not just stop it. A
    merely stopped session is still listed and still gets picked up and

@@ -64,7 +64,14 @@ This tool has nine actions:
             - writes ~/.local/bin/claude-agents-revive.sh: it reads
               `claude agents --json --all`, and for every session whose
               pid isn't an actually running `claude` process, it runs
-              `claude respawn <id>` to bring that session back
+              `claude respawn <id>` to bring that session back. It also
+              checks every scheduled task's timer, and starts that
+              task's service once if the timer has no computed next
+              run — OnUnitActiveSec's reference point only lives in
+              the current systemd user instance, so a reboot silently
+              stops every scheduled task until something re-triggers
+              it (found live: both existing tasks sat idle for hours
+              after a reboot before this was added)
             - writes and enables
               ~/.config/systemd/user/claude-agents.service: a systemd
               user service (Type=oneshot, RemainAfterExit=yes) that runs

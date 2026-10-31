@@ -20,6 +20,17 @@ claude agents --json --all | jq -r '.[] | "\(.id) \(.pid // 0)"' | while read -r
     claude respawn "$id" </dev/null
   fi
 done
+
+for timer_file in "$HOME"/.config/systemd/user/claudissimo-task-*.timer; do
+  [ -f "$timer_file" ] || continue
+  timer_unit="$(basename "$timer_file")"
+  service_unit="${timer_unit%.timer}.service"
+  next="$(systemctl --user list-timers "$timer_unit" --no-pager 2>/dev/null | awk 'NR==2 {print $1}')"
+  if [ "$next" = "-" ] && ! systemctl --user is-active --quiet "$service_unit"; then
+    echo "$timer_unit lost its OnUnitActiveSec reference (reboot), kicking $service_unit once"
+    systemctl --user start --no-block "$service_unit"
+  fi
+done
 EOF
 }
 
