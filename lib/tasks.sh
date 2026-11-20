@@ -147,7 +147,7 @@ action_task_list() {
     log_info "(none)"
     return 0
   fi
-  printf '  %-20s %-16s %-10s %s\n' "NAME" "PROJECT" "ACTIVE" "NEXT RUN"
+  printf '  %-20s %-16s %-10s %-10s %s\n' "NAME" "PROJECT" "INTERVAL" "ACTIVE" "NEXT RUN"
   local name
   while IFS= read -r name; do
     [ -n "$name" ] || continue
@@ -163,7 +163,9 @@ action_task_list() {
     local project_dir project
     project_dir="$(sed -nE 's/^Description=.*\((.*)\)$/\1/p' "$TASKS_UNIT_DIR/claudissimo-task-$name.service" 2>/dev/null)"
     project="$(basename "${project_dir:-?}")"
-    printf '  %-20s %-16s %-10s %s\n' "$name" "$project" "$active" "${next:-?}"
+    local hours
+    hours="$(sed -nE 's/^OnUnitActiveSec=([0-9]+)h$/\1/p' "$TASKS_UNIT_DIR/claudissimo-task-$name.timer" 2>/dev/null)"
+    printf '  %-20s %-16s %-10s %-10s %s\n' "$name" "$project" "${hours:+every ${hours}h}" "$active" "${next:-?}"
   done <<< "$names"
 }
 
