@@ -36,8 +36,9 @@ scripting, e.g. in a cron job:
     bin/claudissimo revive
     bin/claudissimo remove
     bin/claudissimo start
-    bin/claudissimo task [add|list|edit|remove]
+    bin/claudissimo task [add|list|edit|run|remove]
     bin/claudissimo info
+    bin/claudissimo --version
 
 Projects live under `~/claude-projects` by default; override with
 `CLAUDE_PROJECTS_ROOT=/some/other/path bin/claudissimo ...`.

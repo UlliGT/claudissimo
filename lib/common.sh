@@ -2,6 +2,7 @@
 # Shared helpers for claudissimo. Sourced by bin/claudissimo and
 # the lib/*.sh action scripts — do not execute directly.
 
+CLAUDISSIMO_VERSION="1.0"
 PROJECTS_ROOT="${CLAUDE_PROJECTS_ROOT:-$HOME/claude-projects}"
 
 if [ -t 1 ]; then

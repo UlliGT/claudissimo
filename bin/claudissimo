@@ -10,7 +10,7 @@ source "$LIB_DIR/common.sh"
 
 usage() {
   cat <<EOF
-Usage: $(basename "$0") [setup|status [projects|agents|service|timer|memory|versions]|update|new|delete|revive|remove|start|task [add|list|edit|run|remove]|info]
+Usage: $(basename "$0") [setup|status [projects|agents|service|timer|memory|versions]|update|new|delete|revive|remove|start|task [add|list|edit|run|remove]|info|--version]
 
 Run without an argument for an interactive menu.
 EOF
@@ -41,6 +41,7 @@ print_banner() {
 }
 
 print_info() {
+  printf 'claudissimo %s\n\n' "$CLAUDISSIMO_VERSION"
   cat <<'EOF'
 What this tool does
 
@@ -406,6 +407,7 @@ case "${1:-}" in
     esac
     ;;
   info)       print_info ;;
+  -V|--version|version) echo "claudissimo $CLAUDISSIMO_VERSION" ;;
   -h|--help)  usage ;;
   "")         interactive_menu ;;
   *)          usage; exit 1 ;;
