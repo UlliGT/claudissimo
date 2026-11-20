@@ -10,7 +10,7 @@ source "$LIB_DIR/common.sh"
 
 usage() {
   cat <<EOF
-Usage: $(basename "$0") [setup|status [projects|agents|service|timer|memory|versions]|update|new|delete|revive|remove|start|task [add|list|edit|remove]|info]
+Usage: $(basename "$0") [setup|status [projects|agents|service|timer|memory|versions]|update|new|delete|revive|remove|start|task [add|list|edit|run|remove]|info]
 
 Run without an argument for an interactive menu.
 EOF
@@ -28,6 +28,7 @@ run_task_add()    { source "$LIB_DIR/tasks.sh"; action_task_add; }
 run_task_list()   { source "$LIB_DIR/tasks.sh"; action_task_list; }
 run_task_remove() { source "$LIB_DIR/tasks.sh"; action_task_remove; }
 run_task_edit()   { source "$LIB_DIR/tasks.sh"; action_task_edit; }
+run_task_run()    { source "$LIB_DIR/tasks.sh"; action_task_run; }
 
 print_banner() {
   clear
@@ -172,7 +173,7 @@ This tool has nine actions:
           docs don't protect against two sessions editing the same
           file concurrently.
 
-  task    Add, list, edit, or remove a recurring one-shot task: a
+  task    Add, list, edit, run now, or remove a recurring one-shot task: a
           systemd timer running `claude -p` (non-interactive, prompt
           piped via stdin — no shell-quoting issues) on a fixed interval
           in a chosen project. Same proven pattern as the revive timer
@@ -184,7 +185,10 @@ This tool has nine actions:
           currently running background session for that project. Edit
           changes the interval (hours only, no upper bound) and/or the
           prompt and rewrites the timer file — a one-off OnCalendar=
-          schedule set by hand is not preserved across an edit.
+          schedule set by hand is not preserved across an edit. Run now
+          starts a task's service immediately in the background
+          (refuses if it's already running); that counts as a run, so
+          the next scheduled one moves to now plus the interval.
 
 After setup, background sessions should show up automatically in the
 Claude app (or claude.ai) on any other device signed into the same
@@ -264,14 +268,16 @@ tasks_menu() {
     printf '  1) Add\n'
     printf '  2) List\n'
     printf '  3) Edit\n'
-    printf '  4) Remove\n'
+    printf '  4) Run now\n'
+    printf '  5) Remove\n'
     printf '  b) Back\n'
     read -r -p 'Choose: ' choice
     case "$choice" in
       1) run_task_add ;;
       2) run_task_list ;;
       3) run_task_edit ;;
-      4) run_task_remove ;;
+      4) run_task_run ;;
+      5) run_task_remove ;;
       b|B) break ;;
       *) log_warn "unknown choice: $choice" ;;
     esac
@@ -394,6 +400,7 @@ case "${1:-}" in
       add)    run_task_add ;;
       list|"") run_task_list ;;
       edit)   run_task_edit ;;
+      run)    run_task_run ;;
       remove) run_task_remove ;;
       *)      usage; exit 1 ;;
     esac

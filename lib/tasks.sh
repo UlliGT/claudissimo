@@ -213,6 +213,29 @@ action_task_edit() {
   log_ok "task '$name' updated: runs every ${current_hours}h"
 }
 
+action_task_run() {
+  log_info "=== Run scheduled task now ==="
+  action_task_list
+  local name
+  read -r -p "Task name to run now (empty to cancel/back): " name
+  if [ -z "$name" ]; then
+    log_skip "cancelled"
+    return 0
+  fi
+  if [ ! -f "$TASKS_UNIT_DIR/claudissimo-task-$name.timer" ]; then
+    log_err "no task named '$name'"
+    return 0
+  fi
+  if systemctl --user is-active --quiet "claudissimo-task-$name.service"; then
+    log_warn "task '$name' is already running — not starting a second run"
+    return 0
+  fi
+  systemctl --user start --no-block "claudissimo-task-$name.service"
+  log_ok "task '$name' started in the background"
+  log_info "note: this counts as a run — the next scheduled run moves to now + its interval"
+  log_info "follow it with: journalctl --user -u claudissimo-task-$name.service -f"
+}
+
 action_task_remove() {
   log_info "=== Remove scheduled task ==="
   action_task_list

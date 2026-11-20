@@ -23,7 +23,7 @@ Info, all in the same terminal, no curses UI. Status opens its own
 further submenu so you can look at projects, background sessions, the
 boot revive service, the periodic revive timer, memory, or versions on
 their own instead of one long dump; scheduled tasks likewise has its
-own add/list/remove submenu.
+own add/list/edit/run/remove submenu.
 
 Each action is also available directly as a subcommand — handy for
 scripting, e.g. in a cron job:
@@ -131,7 +131,7 @@ curses UI, output stays in your normal scrollback:
    second session edits the exact same files directly, no worktree
    isolation; Claude Code's own docs don't protect against two
    sessions editing the same file concurrently.
-9. **Scheduled tasks** — add, list, edit, or remove a recurring
+9. **Scheduled tasks** — add, list, edit, run now, or remove a recurring
    one-shot task: a systemd timer running `claude -p` (non-interactive,
    prompt piped via stdin — no shell-quoting issues) on a fixed
    interval in a chosen project. Same proven pattern as the revive
@@ -144,6 +144,9 @@ curses UI, output stays in your normal scrollback:
    and/or prompt and rewrites the timer file — any interval works
    (hours only, no upper bound, e.g. 168 for weekly), but a one-off
    `OnCalendar=` schedule set by hand is not preserved across an edit.
+   Run now starts a task's service immediately in the background
+   (refuses if it's already running); that counts as a run, so the next
+   scheduled one moves to now plus the interval.
 
 ## Troubleshooting
 
