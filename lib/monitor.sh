@@ -123,13 +123,40 @@ monitor_ask_url() {
   [ "$key" = KUMA_PUSH_URL ] && url="${url%%\?*}"
   monitor_conf_set "$key" "$url"
   log_ok "saved for $(monitor_host_of "$url") (the full URL is kept in $MONITOR_CONF, readable by you only)"
+  if [ "$key" = KUMA_PUSH_URL ]; then
+    log_info "In Uptime Kuma set this monitor's Heartbeat Interval to $(monitor_kuma_interval) minutes"
+    log_info "(a bit more than twice the push interval, so one late push doesn't alarm)."
+  fi
+  monitor_offer_timer
+}
+
+# Heartbeat interval to suggest for Kuma: twice the push interval plus one.
+monitor_kuma_interval() {
+  local i
+  i="$(monitor_conf_get INTERVAL_MINUTES)"; i="${i:-5}"
+  echo $((i * 2 + 1))
+}
+
+# Saving a target does nothing until the timer runs, so offer to start it.
+monitor_offer_timer() {
+  [ "$(monitor_timer_state)" = "not installed" ] || return 0
+  local reply
+  read -r -p "Start pushing now, every 5 minutes? [Y/n] " reply
+  if [[ "$reply" =~ ^[Nn]$ ]]; then
+    log_info "Not started. Turn it on later: Monitoring > Turn on / change the timer."
+  else
+    monitor_enable_timer 5
+  fi
 }
 
 monitor_enable_timer() {
-  local current interval
+  local current interval="${1:-}" from_offer=0
+  [ -n "$interval" ] && from_offer=1
   current="$(monitor_conf_get INTERVAL_MINUTES)"; current="${current:-5}"
-  read -r -p "Push every how many minutes? [$current] " interval
-  interval="${interval:-$current}"
+  if [ -z "$interval" ]; then
+    read -r -p "Push every how many minutes? [$current] " interval
+    interval="${interval:-$current}"
+  fi
   if ! [[ "$interval" =~ ^[0-9]+$ ]] || [ "$interval" -lt 1 ] || [ "$interval" -gt 60 ]; then
     log_err "needs to be a whole number between 1 and 60"
     return 1
@@ -141,7 +168,9 @@ monitor_enable_timer() {
   systemctl --user enable "$MONITOR_TIMER" >/dev/null 2>&1
   systemctl --user restart "$MONITOR_TIMER"
   log_ok "timer active: pushes every $interval min, first one 2 min after boot"
-  log_info "In Uptime Kuma set the push monitor's heartbeat interval to at least $((interval * 2 + 1)) min."
+  if [ "$from_offer" = 0 ] && [ -n "$(monitor_conf_get KUMA_PUSH_URL)" ]; then
+    log_info "In Uptime Kuma set the monitor's Heartbeat Interval to $((interval * 2 + 1)) minutes."
+  fi
 }
 
 monitor_disable_timer() {
