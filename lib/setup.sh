@@ -26,7 +26,8 @@ for timer_file in "$HOME"/.config/systemd/user/claudissimo-task-*.timer; do
   timer_unit="$(basename "$timer_file")"
   service_unit="${timer_unit%.timer}.service"
   next="$(systemctl --user list-timers "$timer_unit" --no-pager 2>/dev/null | awk 'NR==2 {print $1}')"
-  if [ "$next" = "-" ] && ! systemctl --user is-active --quiet "$service_unit"; then
+  state="$(systemctl --user is-active "$service_unit" 2>/dev/null)"
+  if [ "$next" = "-" ] && ! [[ "$state" =~ ^(active|activating|reloading)$ ]]; then
     echo "$timer_unit lost its OnUnitActiveSec reference (reboot), kicking $service_unit once"
     systemctl --user start --no-block "$service_unit"
   fi

@@ -82,7 +82,7 @@ action_check() {
       warn+=("task '$task': last run failed")
     fi
     next="$(systemctl --user list-timers "$timer_unit" --no-pager 2>/dev/null | awk 'NR==2 {print $1}')"
-    if [ "$next" = "-" ] && ! systemctl --user is-active --quiet "$service_unit"; then
+    if [ "$next" = "-" ] && ! unit_is_running "$service_unit"; then
       warn+=("task '$task': timer has no next run (the revive timer fixes this within 15 min)")
     fi
   done < <(list_task_names)

@@ -33,3 +33,12 @@ is_claude_pid_alive() {
   [ "$pid" -gt 0 ] 2>/dev/null || return 1
   grep -qa claude "/proc/$pid/cmdline" 2>/dev/null
 }
+
+# A oneshot service that is executing right now is "activating", not
+# "active" — `is-active --quiet` alone calls it not running.
+unit_is_running() {
+  case "$(systemctl --user is-active "$1" 2>/dev/null)" in
+    active|activating|reloading) return 0 ;;
+    *) return 1 ;;
+  esac
+}

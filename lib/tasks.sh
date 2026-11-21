@@ -226,7 +226,7 @@ action_task_run() {
     log_err "no task named '$name'"
     return 0
   fi
-  if systemctl --user is-active --quiet "claudissimo-task-$name.service"; then
+  if unit_is_running "claudissimo-task-$name.service"; then
     log_warn "task '$name' is already running — not starting a second run"
     return 0
   fi
