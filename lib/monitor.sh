@@ -124,17 +124,18 @@ monitor_ask_url() {
   monitor_conf_set "$key" "$url"
   log_ok "saved for $(monitor_host_of "$url") (the full URL is kept in $MONITOR_CONF, readable by you only)"
   if [ "$key" = KUMA_PUSH_URL ]; then
-    log_info "In Uptime Kuma set this monitor's Heartbeat Interval to $(monitor_kuma_interval) minutes"
+    log_info "In Uptime Kuma set this monitor's Heartbeat Interval to $(monitor_kuma_seconds) seconds"
     log_info "(a bit more than twice the push interval, so one late push doesn't alarm)."
   fi
   monitor_offer_timer
 }
 
-# Heartbeat interval to suggest for Kuma: twice the push interval plus one.
-monitor_kuma_interval() {
+# Heartbeat interval to suggest for Kuma, in seconds as its form wants it:
+# twice the push interval plus one minute.
+monitor_kuma_seconds() {
   local i
   i="$(monitor_conf_get INTERVAL_MINUTES)"; i="${i:-5}"
-  echo $((i * 2 + 1))
+  echo $(( (i * 2 + 1) * 60 ))
 }
 
 # Saving a target does nothing until the timer runs, so offer to start it.
@@ -169,7 +170,7 @@ monitor_enable_timer() {
   systemctl --user restart "$MONITOR_TIMER"
   log_ok "timer active: pushes every $interval min, first one 2 min after boot"
   if [ "$from_offer" = 0 ] && [ -n "$(monitor_conf_get KUMA_PUSH_URL)" ]; then
-    log_info "In Uptime Kuma set the monitor's Heartbeat Interval to $((interval * 2 + 1)) minutes."
+    log_info "In Uptime Kuma set the monitor's Heartbeat Interval to $(( (interval * 2 + 1) * 60 )) seconds."
   fi
 }
 

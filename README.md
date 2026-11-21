@@ -195,12 +195,13 @@ curses UI, output stays in your normal scrollback:
     they are kept in `~/.config/claudissimo/monitoring.conf` (readable
     by you only), never shown in full and never on a command line.
     Uptime Kuma: add a monitor of type Push, paste its Push URL, and set
-    its heartbeat interval to at least twice the timer interval plus one
-    minute (default timer: every 5 minutes, so 11); OK counts as up,
-    warning and critical as down. Webhook: the receiver gets a JSON with
-    `code` (0/1/2), `status`, `message` and `perfdata`. Tested against a
-    local mock server (requests, encoding, status mapping, failure
-    handling); not against a real Uptime Kuma or Home Assistant.
+    its heartbeat interval (Kuma counts in seconds) to twice the timer
+    interval plus one minute (default timer: every 5 minutes, so 660
+    seconds); OK counts as up, warning and critical as down. Webhook:
+    the receiver gets a JSON with `code` (0/1/2), `status`, `message`
+    and `perfdata`. Tested against a local mock server (requests,
+    encoding, status mapping, failure handling); not against a real
+    Uptime Kuma or Home Assistant.
 
     Example Home Assistant automation (untested here, adjust the notify service):
     
