@@ -206,6 +206,7 @@ action_status() {
     agents)   status_agents ;;
     service)  status_revive_service ;;
     timer)    status_revive_timer ;;
+    auth)     source "$LIB_DIR/auth.sh"; status_auth ;;
     memory)   status_memory ;;
     versions) status_versions ;;
     all)
@@ -213,11 +214,12 @@ action_status() {
       status_agents; log_info ""
       status_revive_service; log_info ""
       status_revive_timer; log_info ""
+      source "$LIB_DIR/auth.sh"; status_auth; log_info ""
       status_memory; log_info ""
       status_versions
       ;;
     *)
-      log_err "unknown status target: $1 (expected: projects|agents|service|timer|memory|versions|all)"
+      log_err "unknown status target: $1 (expected: projects|agents|service|timer|auth|memory|versions|all)"
       return 1
       ;;
   esac

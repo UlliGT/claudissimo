@@ -17,7 +17,7 @@ session being open or even alive.
     bin/claudissimo
 
 Shows a numbered menu grouped into three submenus — **Setup &
-maintenance** (initial setup, status, update), **Projects** (create,
+maintenance** (initial setup, status, update, authentication), **Projects** (create,
 delete), **Sessions** (revive, remove, start, scheduled tasks) — plus
 Info, all in the same terminal, no curses UI. Status opens its own
 further submenu so you can look at projects, background sessions, the
@@ -37,6 +37,8 @@ scripting, e.g. in a cron job:
     bin/claudissimo remove
     bin/claudissimo start
     bin/claudissimo task [add|list|edit|run|remove]
+    bin/claudissimo auth [token|restart]
+    bin/claudissimo check [--probe]   # for monitoring, see below
     bin/claudissimo info
     bin/claudissimo --version
 
@@ -45,7 +47,7 @@ Projects live under `~/claude-projects` by default; override with
 
 ## Functions
 
-This tool offers nine actions through a one-line interactive menu — no
+This tool offers eleven actions through a one-line interactive menu — no
 curses UI, output stays in your normal scrollback:
 
 1. **Initial setup** — installs the pieces needed to run background sessions
@@ -64,14 +66,16 @@ curses UI, output stays in your normal scrollback:
    `remoteControlAtStartup` in `~/.claude/settings.json` so new sessions can
    be controlled remotely from the start. From the interactive menu, it
    explains itself and asks for confirmation before changing anything.
-2. **Status** — reports, for every project directory and every background
-   session: whether it's actually alive, whether it ended up in an unwanted
-   git worktree, whether the revive service and the periodic revive timer
-   are enabled (including the triggered service's last actual run time),
-   and current memory usage (host total/free plus claude processes' RSS —
-   low memory makes Claude Code's own supervisor stop idle sessions
-   sooner). Also reports versions: claude's, jq/git/curl's (plus whether
-   apt has a pending upgrade for them), whether the four deployed files
+2. **Status** — reports, for every project directory and every
+   background session: whether it's actually alive, whether it ended up
+   in an unwanted git worktree, whether the revive service and the
+   periodic revive timer are enabled (including the triggered service's
+   last actual run time), and current memory usage (host total/free plus
+   claude processes' RSS — low memory makes Claude Code's own supervisor
+   stop idle sessions sooner). Also shows authentication — what the
+   sessions run on, when the stored login runs out and what to do about
+   it — and reports versions: claude's, jq/git/curl's (plus whether apt
+   has a pending upgrade for them), whether the four deployed files
    still match this tool's current version, and whether this checkout
    itself is behind its git remote (if it has one) — everything `update`
    would act on, shown without changing anything.
@@ -149,6 +153,40 @@ curses UI, output stays in your normal scrollback:
    (refuses if it's already running); that counts as a run, so the next
    scheduled one moves to now plus the interval.
 
+10. **Authentication** — shows what the sessions run on and how long
+    it lasts, and renews it. The stored claude.ai login has a hard time
+    limit of about four weeks that cannot be renewed; when it runs out,
+    sessions keep running but are useless, and a re-login does not
+    reach processes that are already running (the revive script skips
+    them, their pid is alive). The way out is a 1-year token: `auth
+    token` walks through `claude setup-token`, takes the token hidden
+    (the code from the sign-in page is not the token — the token is
+    printed afterwards), checks it with a real request against an empty
+    config directory, and stores it in
+    `~/.config/environment.d/claude.conf`, readable by you only. The
+    revive script loads it from there, so the daemon it starts hands it
+    to every session; scheduled tasks get it from the systemd user
+    environment after the next reboot. `auth restart` stops the daemon
+    and lets the revive script bring every session back with the
+    current credentials — an answer being written is aborted, the
+    conversations stay, and it refuses to run from inside a Claude
+    session. Verified: a background session runs on the token alone and
+    inherits it from the daemon. Not verified: renewing the token after
+    the year is up, and whether a stored-login renewal alone is picked
+    up by a plain `claude respawn` (it was not needed to find out).
+11. **Check** — for your monitoring: one line, Nagios-style exit code
+    (0 OK, 1 WARNING, 2 CRITICAL) and performance data, e.g.
+    `claudissimo OK - 7 sessions alive, auth via token | sessions=7 …`.
+    Without a request it checks that every session's pid is alive, the
+    revive timer is active, the authentication (stored login expires
+    within 7 days or already did, token set up but the running daemon
+    without it, token older than 335 days, a scheduled task whose last
+    run failed to authenticate) and that no task timer lost its next
+    run. `--probe` additionally sends one tiny real request with the
+    credentials the sessions actually use — the only check that proves
+    authentication works end to end, so run it e.g. hourly, not every
+    minute. Runs fine over SSH from a non-login shell.
+
 ## Troubleshooting
 
 Background sessions should show up automatically in the Claude app (or
@@ -166,6 +204,10 @@ needed. If one doesn't show up:
   one (unverified, worth testing)
 - if it's alive here but shows as unreachable in the app, restart the
   Claude app on the other device completely
+- if the sessions are alive here but never answer (state `blocked`, even
+  after a re-login): their credentials probably ran out —
+  `bin/claudissimo status auth` says so and what to do, usually
+  `bin/claudissimo auth` and then `auth restart`
 
 ## Why `pid`, not `pgrep`
 
