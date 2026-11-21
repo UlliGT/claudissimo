@@ -17,7 +17,7 @@ session being open or even alive.
     bin/claudissimo
 
 Shows a numbered menu grouped into three submenus — **Setup &
-maintenance** (initial setup, status, update), **Projects** (create,
+maintenance** (initial setup, status, update, monitoring), **Projects** (create,
 delete), **Sessions** (revive, remove, start, scheduled tasks) — plus
 Info, all in the same terminal, no curses UI. The first line under the
 title always says until when your Claude login is valid. Status opens its own
@@ -39,7 +39,7 @@ scripting, e.g. in a cron job:
     bin/claudissimo start
     bin/claudissimo task [add|list|edit|run|remove]
     bin/claudissimo auth [login|restart]
-    bin/claudissimo check [--probe]   # for monitoring, see below
+    bin/claudissimo check [--probe] [--push]   # for monitoring, see below
     bin/claudissimo info
     bin/claudissimo --version
 
@@ -48,7 +48,7 @@ Projects live under `~/claude-projects` by default; override with
 
 ## Functions
 
-This tool offers eleven actions through a one-line interactive menu — no
+This tool offers twelve actions through a one-line interactive menu — no
 curses UI, output stays in your normal scrollback:
 
 1. **Initial setup** — installs the pieces needed to run background sessions
@@ -185,6 +185,42 @@ curses UI, output stays in your normal scrollback:
     one tiny real request — the only check that proves authentication
     works end to end, so run it e.g. hourly, not every minute. Runs fine
     over SSH from a non-login shell.
+
+12. **Monitoring** — Pushes the result of `check` to Uptime Kuma (push
+    monitor) and/or Home Assistant (webhook) on a systemd timer, set up
+    from the menu: Setup & maintenance > Monitoring. Push on purpose: if
+    the host or the timer dies, the pushes stop and Uptime Kuma alarms
+    by itself, which a pull over SSH can't do for a dead host. The URLs
+    contain a secret, so they are kept in
+    `~/.config/claudissimo/monitoring.conf` (readable by you only),
+    never shown in full and never on a command line. Uptime Kuma: add a
+    monitor of type Push, paste its Push URL, and set its heartbeat
+    interval to at least twice the timer interval plus one minute
+    (default timer: every 5 minutes, so 11); OK counts as up, warning
+    and critical as down. Home Assistant: an automation with a webhook
+    trigger receives a JSON with `code` (0/1/2), `status`, `message` and
+    `perfdata`. Tested against a local mock server (requests, encoding,
+    status mapping, failure handling); not against a real Uptime Kuma or
+    Home Assistant.
+
+    Example Home Assistant automation (untested here, adjust the notify service):
+    
+    ```yaml
+    alias: claudissimo alert
+    triggers:
+      - trigger: webhook
+        webhook_id: "<the id from the webhook URL>"
+        allowed_methods: [POST]
+        local_only: true
+    conditions:
+      - condition: template
+        value_template: "{{ trigger.json.code | int > 0 }}"
+    actions:
+      - action: notify.notify
+        data:
+          title: "claudissimo {{ trigger.json.status }}"
+          message: "{{ trigger.json.message }}"
+    ```
 
 ## Troubleshooting
 

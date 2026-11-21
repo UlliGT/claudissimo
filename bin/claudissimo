@@ -10,7 +10,7 @@ source "$LIB_DIR/common.sh"
 
 usage() {
   cat <<EOF
-Usage: $(basename "$0") [setup|status [projects|agents|service|timer|auth|memory|versions]|update|new|delete|revive|remove|start|task [add|list|edit|run|remove]|auth [login|restart]|check [--probe]|info|--version]
+Usage: $(basename "$0") [setup|status [projects|agents|service|timer|auth|memory|versions]|update|new|delete|revive|remove|start|task [add|list|edit|run|remove]|auth [login|restart]|check [--probe] [--push]|info|--version]
 
 Run without an argument for an interactive menu.
 EOF
@@ -31,6 +31,7 @@ run_task_edit()   { source "$LIB_DIR/tasks.sh"; action_task_edit; }
 run_task_run()    { source "$LIB_DIR/tasks.sh"; action_task_run; }
 run_auth()        { source "$LIB_DIR/auth.sh"; action_auth "$@"; }
 run_check()       { source "$LIB_DIR/check.sh"; action_check "$@"; }
+run_monitoring()  { source "$LIB_DIR/monitor.sh"; action_monitoring; }
 
 print_banner() {
   clear
@@ -56,7 +57,7 @@ also run recurring one-off tasks on their own schedule (e.g. a daily
 summary mailed to you) — independent of any session being open or
 even alive.
 
-This tool has eleven actions:
+This tool has twelve actions:
 
   setup   Prepares this machine to run Claude Code background sessions
           permanently. Steps, each skipped if already in place:
@@ -231,6 +232,24 @@ This tool has eleven actions:
           authentication works end to end, so run it e.g. hourly, not
           every minute. Runs fine over SSH from a non-login shell.
 
+  monitor Pushes the result of `check` to Uptime Kuma (push monitor)
+          and/or Home Assistant (webhook) on a systemd timer, set up
+          from the menu: Setup & maintenance > Monitoring. Push on
+          purpose: if the host or the timer dies, the pushes stop and
+          Uptime Kuma alarms by itself, which a pull over SSH can't do
+          for a dead host. The URLs contain a secret, so they are kept
+          in `~/.config/claudissimo/monitoring.conf` (readable by you
+          only), never shown in full and never on a command line.
+          Uptime Kuma: add a monitor of type Push, paste its Push URL,
+          and set its heartbeat interval to at least twice the timer
+          interval plus one minute (default timer: every 5 minutes, so
+          11); OK counts as up, warning and critical as down. Home
+          Assistant: an automation with a webhook trigger receives a
+          JSON with `code` (0/1/2), `status`, `message` and
+          `perfdata`. Tested against a local mock server (requests,
+          encoding, status mapping, failure handling); not against a
+          real Uptime Kuma or Home Assistant.
+
 After setup, background sessions should show up automatically in the
 Claude app (or claude.ai) on any other device signed into the same
 account — no extra step needed. If one doesn't show up:
@@ -361,12 +380,14 @@ setup_menu() {
     printf '  1) Initial setup\n'
     printf '  2) Check status\n'
     printf '  3) Update (Claude Code, packages, deployed scripts)\n'
+    printf '  4) Monitoring (Uptime Kuma, Home Assistant)\n'
     printf '  b) Back\n'
     read -r -p 'Choose: ' choice
     case "$choice" in
       1) confirm_setup && run_setup || log_skip "setup cancelled" ;;
       2) status_menu ;;
       3) run_update ;;
+      4) run_monitoring ;;
       b|B) break ;;
       *) log_warn "unknown choice: $choice" ;;
     esac

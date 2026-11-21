@@ -3,8 +3,14 @@
 # 2 CRITICAL). Read-only; makes no API request unless --probe is given.
 
 action_check() {
-  local probe=0
-  [ "${1:-}" = "--probe" ] && probe=1
+  local probe=0 push=0 arg
+  for arg in "$@"; do
+    case "$arg" in
+      --probe) probe=1 ;;
+      --push)  push=1 ;;
+      *) log_err "unknown option: $arg (expected: --probe, --push)"; return 3 ;;
+    esac
+  done
 
   local crit=() warn=()
   source "$LIB_DIR/auth.sh"
@@ -74,5 +80,9 @@ action_check() {
     msg="$total sessions alive, login valid for ${A_LOGIN_DAYS:-?} days"
   fi
   printf 'claudissimo %s - %s | %s\n' "$label" "$msg" "$perf"
+  if [ "$push" = 1 ]; then
+    source "$LIB_DIR/monitor.sh"
+    monitor_push "$code" "$label" "$msg" "$perf"
+  fi
   return "$code"
 }
