@@ -194,20 +194,30 @@ This tool has eleven actions:
           (refuses if it's already running); that counts as a run, so
           the next scheduled one moves to now plus the interval.
 
-  auth    Shows how long the login lasts and renews it. The stored
+  auth    Found under Status > Authentication in the menu. The stored
           claude.ai login has a hard time limit of about four weeks
-          that cannot be renewed; when it runs out, sessions keep
-          running but are useless, and a re-login does not reach
+          that cannot be renewed, so the main menu always shows the
+          date it is valid until and turns into a warning seven days
+          before (and red once it ran out); the end of setup says so
+          too. When it runs out, sessions keep running but are
+          useless, scheduled tasks fail, and the Claude app shows the
+          sessions as unreachable; a re-login alone does not reach
           processes that are already running (the revive script skips
-          them, their pid is alive). So: `auth login` signs in again
-          (`claude auth login`), and `auth restart` stops the daemon
-          and lets the revive script bring every session back with the
-          current login — an answer being written is aborted, the
-          conversations stay, and it refuses to run from inside a
-          Claude session. A 1-year token (`claude setup-token`) does
-          not replace this: tried and dropped — while a stored login
-          exists the daemon starts without it, and a session running
-          on the token alone did not show up under Remote Control.
+          them, their pid is alive). The Authentication screen shows
+          the state and what to do, and offers the two steps: Sign in
+          again (`claude auth login`) and Restart sessions (stops the
+          daemon and lets the revive script bring every session back
+          with the current login — an answer being written is aborted,
+          the conversations stay, and it refuses to run from inside a
+          Claude session, so use a normal SSH terminal). Both are also
+          available as `auth login` and `auth restart`. A 1-year token
+          (`claude setup-token`) does not replace this: tried and
+          dropped — while a stored login exists the daemon starts
+          without it, and a session running on the token alone did not
+          show up under Remote Control. Not verified: that signing in
+          again shortly before the date resets the four weeks, and the
+          whole sign-in-and-restart path with an already expired
+          login.
 
   check   For your monitoring: one line, Nagios-style exit code (0 OK,
           1 WARNING, 2 CRITICAL) plus performance data, e.g.
@@ -237,8 +247,8 @@ account — no extra step needed. If one doesn't show up:
     Claude app on the other device completely
   - if the sessions are alive here but never answer (state "blocked",
     even after a re-login): their credentials probably ran out —
-    `claudissimo status auth` says so and what to do, usually
-    `claude auth login` and then `claudissimo auth restart`
+    the first line of the main menu says so; fix it under
+    Status > Authentication (sign in again, then restart sessions)
 
 Why `pid`, not `pgrep`: a dead background session can still show state
 `done` after a reboot, and `claude respawn` hands a session to a
@@ -278,7 +288,7 @@ status_menu() {
     printf '  2) Background sessions\n'
     printf '  3) Revive service (boot)\n'
     printf '  4) Revive timer (every 15 min)\n'
-    printf '  5) Authentication\n'
+    printf '  5) Authentication (login expiry, sign in again)\n'
     printf '  6) Memory\n'
     printf '  7) Versions (what update can refresh)\n'
     printf '  8) Everything\n'
@@ -289,7 +299,7 @@ status_menu() {
       2) run_status agents ;;
       3) run_status service ;;
       4) run_status timer ;;
-      5) run_status auth ;;
+      5) run_auth ;;
       6) run_status memory ;;
       7) run_status versions ;;
       8) run_status all ;;
@@ -351,14 +361,12 @@ setup_menu() {
     printf '  1) Initial setup\n'
     printf '  2) Check status\n'
     printf '  3) Update (Claude Code, packages, deployed scripts)\n'
-    printf '  4) Authentication (login expiry, sign in again)\n'
     printf '  b) Back\n'
     read -r -p 'Choose: ' choice
     case "$choice" in
       1) confirm_setup && run_setup || log_skip "setup cancelled" ;;
       2) status_menu ;;
       3) run_update ;;
-      4) run_auth ;;
       b|B) break ;;
       *) log_warn "unknown choice: $choice" ;;
     esac
@@ -405,8 +413,10 @@ sessions_menu() {
 
 interactive_menu() {
   print_banner
+  source "$LIB_DIR/auth.sh"
   while true; do
     printf '\nClaudissimo\n'
+    auth_menu_line
     printf '  1) Setup & maintenance\n'
     printf '  2) Projects\n'
     printf '  3) Sessions\n'

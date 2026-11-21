@@ -14,8 +14,8 @@
 AUTH_WARN_DAYS=7
 AUTH_FAIL_WINDOW="2 days ago"
 
-# Fills A_* globals. Read-only, no API calls.
-auth_collect() {
+# Fills the A_LOGIN_* globals (one fast local call). Read-only.
+auth_collect_login() {
   local js
   js="$(claude auth status 2>/dev/null || true)"
   A_LOGGED_IN="$(jq -r '.loggedIn // false' <<< "$js" 2>/dev/null || echo false)"
@@ -24,6 +24,11 @@ auth_collect() {
   if [ -n "$A_LOGIN_EXPIRES" ]; then
     A_LOGIN_DAYS=$(( ( $(date -d "$A_LOGIN_EXPIRES" +%s) - $(date +%s) ) / 86400 ))
   fi
+}
+
+# Fills everything status/check need. Read-only, no API calls.
+auth_collect() {
+  auth_collect_login
 
   # Tasks whose *last* run failed to authenticate; clears by itself once the
   # task has run successfully again (`claudissimo task run NAME` to force it).
@@ -42,6 +47,39 @@ auth_collect() {
   done < <(list_task_names)
 }
 
+# One line for the main menu: always names the date, louder when it matters.
+auth_menu_line() {
+  auth_collect_login
+  if [ "$A_LOGGED_IN" != true ]; then
+    printf '%s! Not logged in — fix it under Status > Authentication%s\n' "$C_RED" "$C_RESET"
+  elif [ -z "$A_LOGIN_DAYS" ]; then
+    return 0
+  elif [ "$A_LOGIN_DAYS" -lt 0 ]; then
+    printf '%s! Login expired on %s — sessions are useless until you sign in again: Status > Authentication%s\n' "$C_RED" "${A_LOGIN_EXPIRES%%T*}" "$C_RESET"
+  elif [ "$A_LOGIN_DAYS" -le "$AUTH_WARN_DAYS" ]; then
+    printf '%s! Login expires on %s (in %s days) — sign in again: Status > Authentication%s\n' "$C_YELLOW" "${A_LOGIN_EXPIRES%%T*}" "$A_LOGIN_DAYS" "$C_RESET"
+  else
+    printf 'Login valid until %s (%s days)\n' "${A_LOGIN_EXPIRES%%T*}" "$A_LOGIN_DAYS"
+  fi
+}
+
+# Printed at the end of setup: the login runs out, and when.
+auth_expiry_notice() {
+  auth_collect_login
+  log_info ""
+  log_info "=== Important: your Claude login runs out ==="
+  if [ "$A_LOGGED_IN" != true ]; then
+    log_warn "You are not signed in yet. Start \`claude\` once and sign in (or use Status > Authentication in the menu)."
+    log_info "The login then lasts about four weeks."
+  else
+    log_warn "Your login expires on ${A_LOGIN_EXPIRES%%T*} (in ${A_LOGIN_DAYS:-?} days) and cannot be renewed."
+  fi
+  log_info "After that, background sessions keep running but do nothing, scheduled tasks"
+  log_info "fail, and the Claude app shows the sessions as unreachable."
+  log_info "The main menu always shows the date, and warns 7 days before. To sign in again:"
+  log_info "Status > Authentication > Sign in again, then Restart sessions."
+}
+
 # Real end-to-end probe: one tiny request, the way a fresh service would
 # authenticate. Costs a request, so only on demand.
 auth_probe() {
@@ -55,7 +93,7 @@ status_auth() {
   auth_collect
 
   if [ "$A_LOGGED_IN" = true ] && [ -n "$A_LOGIN_DAYS" ]; then
-    printf '  %-22s %s\n' "Login:" "expires ${A_LOGIN_EXPIRES%%T*} ($A_LOGIN_DAYS days)"
+    printf '  %-22s %s\n' "Login:" "valid until ${A_LOGIN_EXPIRES%%T*} ($A_LOGIN_DAYS days left)"
   elif [ "$A_LOGGED_IN" = true ]; then
     printf '  %-22s %s\n' "Login:" "logged in, no expiry reported"
   else
@@ -71,12 +109,15 @@ status_auth() {
 }
 
 auth_hints() {
+  local fix="In the menu: Status > Authentication > Sign in again, then Restart sessions."
   if [ "$A_RECENT_FAILS" -gt 0 ] 2>/dev/null; then
-    log_warn "authentication is failing for task(s):$A_FAILING_TASKS. Sign in again (claudissimo auth login), then restart the sessions (claudissimo auth restart)."
+    log_warn "authentication is failing for task(s):$A_FAILING_TASKS. $fix"
   elif [ "$A_LOGGED_IN" != true ]; then
-    log_warn "not logged in. Run: claudissimo auth login"
+    log_warn "not logged in. $fix"
+  elif [ -n "$A_LOGIN_DAYS" ] && [ "$A_LOGIN_DAYS" -lt 0 ]; then
+    log_warn "the login expired on ${A_LOGIN_EXPIRES%%T*}; sessions and scheduled tasks do nothing until you sign in again. $fix"
   elif [ -n "$A_LOGIN_DAYS" ] && [ "$A_LOGIN_DAYS" -le "$AUTH_WARN_DAYS" ]; then
-    log_warn "the login runs out in $A_LOGIN_DAYS day(s) and cannot be renewed; after that sessions and scheduled tasks stop working. Sign in again: claudissimo auth login"
+    log_warn "the login expires on ${A_LOGIN_EXPIRES%%T*} (in $A_LOGIN_DAYS days) and cannot be renewed; after that sessions and scheduled tasks stop working. $fix"
   fi
 }
 

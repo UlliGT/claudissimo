@@ -17,9 +17,10 @@ session being open or even alive.
     bin/claudissimo
 
 Shows a numbered menu grouped into three submenus — **Setup &
-maintenance** (initial setup, status, update, authentication), **Projects** (create,
+maintenance** (initial setup, status, update), **Projects** (create,
 delete), **Sessions** (revive, remove, start, scheduled tasks) — plus
-Info, all in the same terminal, no curses UI. Status opens its own
+Info, all in the same terminal, no curses UI. The first line under the
+title always says until when your Claude login is valid. Status opens its own
 further submenu so you can look at projects, background sessions, the
 boot revive service, the periodic revive timer, memory, or versions on
 their own instead of one long dump; scheduled tasks likewise has its
@@ -153,19 +154,27 @@ curses UI, output stays in your normal scrollback:
    (refuses if it's already running); that counts as a run, so the next
    scheduled one moves to now plus the interval.
 
-10. **Authentication** — Shows how long the login lasts and renews it.
-    The stored claude.ai login has a hard time limit of about four weeks
-    that cannot be renewed; when it runs out, sessions keep running but
-    are useless, and a re-login does not reach processes that are
-    already running (the revive script skips them, their pid is alive).
-    So: `auth login` signs in again (`claude auth login`), and `auth
-    restart` stops the daemon and lets the revive script bring every
-    session back with the current login — an answer being written is
-    aborted, the conversations stay, and it refuses to run from inside a
-    Claude session. A 1-year token (`claude setup-token`) does not
-    replace this: tried and dropped — while a stored login exists the
-    daemon starts without it, and a session running on the token alone
-    did not show up under Remote Control.
+10. **Authentication** — Found under Status > Authentication in the
+    menu. The stored claude.ai login has a hard time limit of about four
+    weeks that cannot be renewed, so the main menu always shows the date
+    it is valid until and turns into a warning seven days before (and
+    red once it ran out); the end of setup says so too. When it runs
+    out, sessions keep running but are useless, scheduled tasks fail,
+    and the Claude app shows the sessions as unreachable; a re-login
+    alone does not reach processes that are already running (the revive
+    script skips them, their pid is alive). The Authentication screen
+    shows the state and what to do, and offers the two steps: Sign in
+    again (`claude auth login`) and Restart sessions (stops the daemon
+    and lets the revive script bring every session back with the current
+    login — an answer being written is aborted, the conversations stay,
+    and it refuses to run from inside a Claude session, so use a normal
+    SSH terminal). Both are also available as `auth login` and `auth
+    restart`. A 1-year token (`claude setup-token`) does not replace
+    this: tried and dropped — while a stored login exists the daemon
+    starts without it, and a session running on the token alone did not
+    show up under Remote Control. Not verified: that signing in again
+    shortly before the date resets the four weeks, and the whole
+    sign-in-and-restart path with an already expired login.
 11. **Check** — For your monitoring: one line, Nagios-style exit code (0
     OK, 1 WARNING, 2 CRITICAL) plus performance data, e.g. `claudissimo
     OK - 7 sessions alive, login valid for 27 days | sessions=7 …`.
@@ -196,8 +205,8 @@ needed. If one doesn't show up:
   Claude app on the other device completely
 - if the sessions are alive here but never answer (state `blocked`, even
   after a re-login): their credentials probably ran out —
-  `bin/claudissimo status auth` says so and what to do, usually
-  `claude auth login` and then `bin/claudissimo auth restart`
+  the first line of the main menu says so; fix it under
+  Status > Authentication (sign in again, then restart sessions)
 
 ## Why `pid`, not `pgrep`
 

@@ -197,4 +197,6 @@ action_setup() {
   fi
 
   log_info "=== Setup finished ==="
+  source "$LIB_DIR/auth.sh"
+  auth_expiry_notice
 }
