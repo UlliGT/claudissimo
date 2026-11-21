@@ -18,7 +18,10 @@ action_check() {
 
   # Sessions: alive means a running claude process behind the pid.
   local total=0 dead=0 dead_names="" agents_json id name pid started
-  agents_json="$(claude agents --json --all 2>/dev/null || echo '[]')"
+  if ! agents_json="$(claude agents --json --all 2>/dev/null)" || ! jq -e 'type == "array"' <<< "$agents_json" >/dev/null 2>&1; then
+    warn+=("could not list sessions (claude agents failed)")
+    agents_json='[]'
+  fi
   while IFS=$'\t' read -r id name pid started; do
     [ -n "$id" ] || continue
     total=$((total + 1))
@@ -31,6 +34,9 @@ action_check() {
     fi
   done < <(jq -r '.[] | [.id, .name, (.pid // 0), (.startedAt // 0)] | @tsv' <<< "$agents_json" 2>/dev/null)
   [ "$dead" -gt 0 ] && crit+=("$dead of $total sessions not running:$dead_names")
+  if [ "$total" -eq 0 ] && [ "${#warn[@]}" -eq 0 ]; then
+    warn+=("no background sessions at all")
+  fi
 
   # Keepalive machinery.
   systemctl --user is-active --quiet claude-agents.timer 2>/dev/null \
@@ -48,8 +54,22 @@ action_check() {
   elif [ -n "$A_LOGIN_DAYS" ] && [ "$A_LOGIN_DAYS" -le "$AUTH_WARN_DAYS" ]; then
     warn+=("login expires in $A_LOGIN_DAYS day(s); sign in again (claudissimo auth login)")
   fi
-  if [ "$probe" = 1 ] && ! auth_probe; then
-    crit+=("authentication probe failed")
+  # The real request: always with --probe; with --push at most once an hour
+  # (and again on every push while the last one failed), otherwise a push
+  # every few minutes would cost a request each time.
+  local state_dir="${CLAUDISSIMO_STATE_DIR:-$HOME/.local/state/claudissimo}"
+  local state_file="$state_dir/probe" last_at=0 last_ok=0 now
+  now="$(date +%s)"
+  [ -f "$state_file" ] && read -r last_at last_ok < "$state_file" || true
+  if [ "$probe" = 1 ] || { [ "$push" = 1 ] && { [ "$last_ok" != 1 ] || [ $((now - last_at)) -ge 3600 ]; }; }; then
+    mkdir -p "$state_dir"
+    if auth_probe; then last_ok=1; else last_ok=0; fi
+    last_at="$now"
+    printf '%s %s\n' "$last_at" "$last_ok" > "$state_file"
+    probe=1
+  fi
+  if { [ "$probe" = 1 ] || [ "$push" = 1 ]; } && [ "$last_ok" != 1 ]; then
+    crit+=("probe request failed (login, usage limit or network) at $(date -d "@$last_at" +%H:%M)")
   fi
 
   # Scheduled tasks: last run failed, or timer without a next run.

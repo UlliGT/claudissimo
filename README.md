@@ -178,14 +178,19 @@ curses UI, output stays in your normal scrollback:
 11. **Check** — For your monitoring: one line, Nagios-style exit code (0
     OK, 1 WARNING, 2 CRITICAL) plus performance data, e.g. `claudissimo
     OK - 7 sessions alive, login valid for 27 days | sessions=7 …`.
-    Without a request it checks that every session's pid is alive, the
-    revive timer is active, the login (expires within 7 days or already
-    did, a scheduled task whose last run failed to authenticate) and
-    that no task timer lost its next run. `--probe` additionally sends
-    one tiny real request — the only check that proves authentication
-    works end to end, so run it e.g. hourly, not every minute. Runs fine
-    over SSH from a non-login shell.
-
+    Critical: a session whose pid has no running claude process, the
+    revive timer is not active, not logged in or the login expired, a
+    scheduled task whose last run failed to authenticate, a failed probe
+    request. Warning: the login expires within 7 days, a scheduled
+    task's last run failed, a task timer lost its next run, no
+    background sessions at all, or the session list could not be read.
+    It does not notice a session that is alive but stuck for some other
+    reason. A plain `check` makes no request. `--probe` sends one tiny
+    real request — the only test that proves authentication works end to
+    end; `--push` (what the timer runs) does that by itself at most once
+    an hour, and again on every push while the last one failed. Runs
+    fine over SSH from a non-login shell; `--push` additionally sends
+    the result to the targets set up under Monitoring.
 12. **Monitoring** — Pushes the result of `check` to Uptime Kuma (push
     monitor) and/or a webhook (JSON POST; any receiver works, e.g. Home
     Assistant) on a systemd timer, set up from the menu: Setup &
