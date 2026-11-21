@@ -253,10 +253,12 @@ This tool has twelve actions:
           twice the timer interval plus one minute (default timer:
           every 5 minutes, so 660 seconds); OK counts as up, warning
           and critical as down. Webhook: the receiver gets a JSON with
-          `code` (0/1/2), `status`, `message` and `perfdata`. Tested
-          against a local mock server (requests, encoding, status
-          mapping, failure handling); not against a real Uptime Kuma
-          or Home Assistant.
+          `code` (0/1/2), `status`, `message` and `perfdata`. Verified
+          end to end with a real Uptime Kuma: pushes arrive, and it
+          raises the alarm when they stop (timer switched off on
+          purpose). The webhook was only tested against a local mock
+          server (requests, encoding, status mapping, failure
+          handling), not against a real Home Assistant.
 
 After setup, background sessions should show up automatically in the
 Claude app (or claude.ai) on any other device signed into the same

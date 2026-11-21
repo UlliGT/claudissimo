@@ -204,9 +204,11 @@ curses UI, output stays in your normal scrollback:
     interval plus one minute (default timer: every 5 minutes, so 660
     seconds); OK counts as up, warning and critical as down. Webhook:
     the receiver gets a JSON with `code` (0/1/2), `status`, `message`
-    and `perfdata`. Tested against a local mock server (requests,
-    encoding, status mapping, failure handling); not against a real
-    Uptime Kuma or Home Assistant.
+    and `perfdata`. Verified end to end with a real Uptime Kuma: pushes
+    arrive, and it raises the alarm when they stop (timer switched off
+    on purpose). The webhook was only tested against a local mock server
+    (requests, encoding, status mapping, failure handling), not against
+    a real Home Assistant.
 
     Example Home Assistant automation (untested here, adjust the notify service):
     
