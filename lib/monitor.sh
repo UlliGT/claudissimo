@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 # Monitoring: pushes the result of `claudissimo check` to Uptime Kuma (push
-# monitor) and/or Home Assistant (webhook), on a systemd timer, configured
+# monitor) and/or any webhook receiver (JSON POST, e.g. Home Assistant), on a
+# systemd timer, configured
 # from the menu. A push model on purpose: if the host or the timer dies, the
 # pushes stop and Uptime Kuma alarms by itself — a pull over SSH can't say
 # anything about a host that is down.
@@ -43,7 +44,7 @@ monitor_push() {
   local code="$1" label="$2" msg="$3" perf="$4" url http status payload
   local kuma ha
   kuma="$(monitor_conf_get KUMA_PUSH_URL)"
-  ha="$(monitor_conf_get HA_WEBHOOK_URL)"
+  ha="$(monitor_conf_get WEBHOOK_URL)"
   if [ -z "$kuma" ] && [ -z "$ha" ]; then
     log_skip "no monitoring target set up (menu: Setup & maintenance > Monitoring)"
     return 0
@@ -61,7 +62,7 @@ monitor_push() {
     payload="$(jq -n --argjson code "$code" --arg label "$label" --arg message "$msg" --arg perf "$perf" \
       '{code:$code, status:($label|ascii_downcase), message:$message, perfdata:$perf, source:"claudissimo"}')"
     http="$(monitor_curl "$ha" -X POST -H 'Content-Type: application/json' --data-binary "$payload")"
-    if [[ "$http" =~ ^2 ]]; then log_ok "Home Assistant: webhook sent"; else log_warn "Home Assistant: webhook failed (HTTP $http)"; fi
+    if [[ "$http" =~ ^2 ]]; then log_ok "Webhook: sent"; else log_warn "Webhook: failed (HTTP $http)"; fi
   fi
 }
 
@@ -152,11 +153,11 @@ monitor_disable_timer() {
 
 monitor_status() {
   local kuma ha kuma_txt="not set" ha_txt="not set"
-  kuma="$(monitor_conf_get KUMA_PUSH_URL)"; ha="$(monitor_conf_get HA_WEBHOOK_URL)"
+  kuma="$(monitor_conf_get KUMA_PUSH_URL)"; ha="$(monitor_conf_get WEBHOOK_URL)"
   [ -n "$kuma" ] && kuma_txt="set ($(monitor_host_of "$kuma"))"
   [ -n "$ha" ] && ha_txt="set ($(monitor_host_of "$ha"))"
   printf '  %-26s %s\n' "Uptime Kuma push URL:" "$kuma_txt"
-  printf '  %-26s %s\n' "Home Assistant webhook:" "$ha_txt"
+  printf '  %-26s %s\n' "Webhook (JSON):" "$ha_txt"
   printf '  %-26s %s\n' "Timer:" "$(monitor_timer_state)"
 }
 
@@ -166,7 +167,7 @@ action_monitoring() {
     monitor_status
     printf '\nMonitoring\n'
     printf '  1) Set Uptime Kuma push URL\n'
-    printf '  2) Set Home Assistant webhook URL\n'
+    printf '  2) Set webhook URL (JSON POST)\n'
     printf '  3) Send a test push now\n'
     printf '  4) Turn on / change the timer\n'
     printf '  5) Turn off the timer\n'
@@ -175,7 +176,7 @@ action_monitoring() {
     read -r -p 'Choose: ' choice
     case "$choice" in
       1) monitor_ask_url KUMA_PUSH_URL "Push URL" "In Uptime Kuma: Add New Monitor > type 'Push', then paste the Push URL it shows (the part after ? is dropped)." ;;
-      2) monitor_ask_url HA_WEBHOOK_URL "Webhook URL" "In Home Assistant create an automation with a webhook trigger and paste its URL, e.g. http://homeassistant.local:8123/api/webhook/<id>." ;;
+      2) monitor_ask_url WEBHOOK_URL "Webhook URL" "Any service that accepts a JSON POST works. Home Assistant: create an automation with a webhook trigger and paste its URL, e.g. http://homeassistant.local:8123/api/webhook/<id>." ;;
       3) "$REPO_ROOT/bin/claudissimo" check --push || true ;;
       4) monitor_enable_timer ;;
       5) monitor_disable_timer ;;

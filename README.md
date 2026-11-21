@@ -187,21 +187,20 @@ curses UI, output stays in your normal scrollback:
     over SSH from a non-login shell.
 
 12. **Monitoring** — Pushes the result of `check` to Uptime Kuma (push
-    monitor) and/or Home Assistant (webhook) on a systemd timer, set up
-    from the menu: Setup & maintenance > Monitoring. Push on purpose: if
-    the host or the timer dies, the pushes stop and Uptime Kuma alarms
-    by itself, which a pull over SSH can't do for a dead host. The URLs
-    contain a secret, so they are kept in
-    `~/.config/claudissimo/monitoring.conf` (readable by you only),
-    never shown in full and never on a command line. Uptime Kuma: add a
-    monitor of type Push, paste its Push URL, and set its heartbeat
-    interval to at least twice the timer interval plus one minute
-    (default timer: every 5 minutes, so 11); OK counts as up, warning
-    and critical as down. Home Assistant: an automation with a webhook
-    trigger receives a JSON with `code` (0/1/2), `status`, `message` and
-    `perfdata`. Tested against a local mock server (requests, encoding,
-    status mapping, failure handling); not against a real Uptime Kuma or
-    Home Assistant.
+    monitor) and/or a webhook (JSON POST; any receiver works, e.g. Home
+    Assistant) on a systemd timer, set up from the menu: Setup &
+    maintenance > Monitoring. Push on purpose: if the host or the timer
+    dies, the pushes stop and Uptime Kuma alarms by itself, which a pull
+    over SSH can't do for a dead host. The URLs contain a secret, so
+    they are kept in `~/.config/claudissimo/monitoring.conf` (readable
+    by you only), never shown in full and never on a command line.
+    Uptime Kuma: add a monitor of type Push, paste its Push URL, and set
+    its heartbeat interval to at least twice the timer interval plus one
+    minute (default timer: every 5 minutes, so 11); OK counts as up,
+    warning and critical as down. Webhook: the receiver gets a JSON with
+    `code` (0/1/2), `status`, `message` and `perfdata`. Tested against a
+    local mock server (requests, encoding, status mapping, failure
+    handling); not against a real Uptime Kuma or Home Assistant.
 
     Example Home Assistant automation (untested here, adjust the notify service):
     
