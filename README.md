@@ -283,6 +283,6 @@ image to build or maintain.
 
 This whole tool builds on Claude Code's "Agent view" (background sessions,
 `claude --bg`, Remote Control) — a research preview from Anthropic, not a
-finished, generally released feature, as of 2026-10-27 on Claude Code
-2.1.311. It can change behavior or break between Claude Code versions
+finished, generally released feature, as of 2026-11-21 on Claude Code
+2.1.330. It can change behavior or break between Claude Code versions
 with no notice from this tool.
