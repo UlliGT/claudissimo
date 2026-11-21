@@ -153,39 +153,38 @@ curses UI, output stays in your normal scrollback:
    (refuses if it's already running); that counts as a run, so the next
    scheduled one moves to now plus the interval.
 
-10. **Authentication** — shows what the sessions run on and how long
-    it lasts, and renews it. The stored claude.ai login has a hard time
+10. **Authentication** — Shows what the sessions run on and how long it
+    lasts, and renews it. The stored claude.ai login has a hard time
     limit of about four weeks that cannot be renewed; when it runs out,
-    sessions keep running but are useless, and a re-login does not
-    reach processes that are already running (the revive script skips
-    them, their pid is alive). The way out is a 1-year token: `auth
-    token` walks through `claude setup-token`, takes the token hidden
-    (the code from the sign-in page is not the token — the token is
-    printed afterwards), checks it with a real request against an empty
-    config directory, and stores it in
-    `~/.config/environment.d/claude.conf`, readable by you only. The
-    revive script loads it from there, so the daemon it starts hands it
-    to every session; scheduled tasks get it from the systemd user
-    environment after the next reboot. `auth restart` stops the daemon
-    and lets the revive script bring every session back with the
-    current credentials — an answer being written is aborted, the
-    conversations stay, and it refuses to run from inside a Claude
-    session. Verified: a background session runs on the token alone and
-    inherits it from the daemon. Not verified: renewing the token after
-    the year is up, and whether a stored-login renewal alone is picked
-    up by a plain `claude respawn` (it was not needed to find out).
-11. **Check** — for your monitoring: one line, Nagios-style exit code
-    (0 OK, 1 WARNING, 2 CRITICAL) and performance data, e.g.
-    `claudissimo OK - 7 sessions alive, auth via token | sessions=7 …`.
+    sessions keep running but are useless, and a re-login does not reach
+    processes that are already running (the revive script skips them,
+    their pid is alive). So: sign in again with `claude auth login`,
+    then `auth restart`, which stops the daemon and lets the revive
+    script bring every session back with the current credentials — an
+    answer being written is aborted, the conversations stay, and it
+    refuses to run from inside a Claude session. `auth token` sets up a
+    1-year token for scheduled tasks (`claude -p`): it walks through
+    `claude setup-token`, takes the token hidden (the code from the
+    sign-in page is not the token — the token is printed afterwards),
+    checks it with a real request against an empty config directory, and
+    stores it in `~/.config/environment.d/claude.conf`, readable by you
+    only. Verified by experiment: the token does NOT protect the
+    background sessions — while a stored login exists, the shared daemon
+    starts without the token and the sessions use the login; without any
+    stored login a session runs on the token alone. Whether such a
+    token-only session still shows up under Remote Control is not
+    verified, so this tool does not remove the stored login.
+11. **Check** — For your monitoring: one line, Nagios-style exit code (0
+    OK, 1 WARNING, 2 CRITICAL) plus performance data, e.g. `claudissimo
+    OK - 7 sessions alive, auth via stored login | sessions=7 …`.
     Without a request it checks that every session's pid is alive, the
     revive timer is active, the authentication (stored login expires
-    within 7 days or already did, token set up but the running daemon
-    without it, token older than 335 days, a scheduled task whose last
-    run failed to authenticate) and that no task timer lost its next
-    run. `--probe` additionally sends one tiny real request with the
-    credentials the sessions actually use — the only check that proves
-    authentication works end to end, so run it e.g. hourly, not every
-    minute. Runs fine over SSH from a non-login shell.
+    within 7 days or already did, a scheduled task whose last run failed
+    to authenticate, token older than 335 days) and that no task timer
+    lost its next run. `--probe` additionally sends one tiny real
+    request with the credentials the sessions actually use — the only
+    check that proves authentication works end to end, so run it e.g.
+    hourly, not every minute. Runs fine over SSH from a non-login shell.
 
 ## Troubleshooting
 
@@ -207,7 +206,7 @@ needed. If one doesn't show up:
 - if the sessions are alive here but never answer (state `blocked`, even
   after a re-login): their credentials probably ran out —
   `bin/claudissimo status auth` says so and what to do, usually
-  `bin/claudissimo auth` and then `auth restart`
+  `claude auth login` and then `bin/claudissimo auth restart`
 
 ## Why `pid`, not `pgrep`
 

@@ -47,10 +47,7 @@ action_check() {
     elif [ -n "$A_LOGIN_DAYS" ] && [ "$A_LOGIN_DAYS" -lt 0 ]; then
       crit+=("stored login expired")
     elif [ -n "$A_LOGIN_DAYS" ] && [ "$A_LOGIN_DAYS" -le "$AUTH_WARN_DAYS" ]; then
-      warn+=("stored login expires in $A_LOGIN_DAYS day(s), no token set up")
-    fi
-    if [ "$A_TOKEN_FILE" = 1 ] && [ "$A_DAEMON_TOKEN" = "no" ]; then
-      warn+=("token is set up but the daemon runs without it (claudissimo auth restart)")
+      warn+=("stored login expires in $A_LOGIN_DAYS day(s); sign in again (claude auth login) and run: claudissimo auth restart")
     fi
   fi
   if [ "$probe" = 1 ] && ! auth_probe; then

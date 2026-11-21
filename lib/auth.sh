@@ -6,10 +6,13 @@
 #  - the stored claude.ai login (~/.claude/.credentials.json): hard time
 #    limit (about 4 weeks), cannot be renewed, sessions then keep running
 #    but are useless, and a re-login does not reach processes already running
-#  - a 1-year token (`claude setup-token`) in CLAUDE_CODE_OAUTH_TOKEN: only
-#    effective for processes that have it in their environment. The shared
-#    daemon hands its environment to every session it starts, so what counts
-#    is whether the *daemon* was started with it.
+#  - a 1-year token (`claude setup-token`) in CLAUDE_CODE_OAUTH_TOKEN: used
+#    by `claude -p` runs that have it in their environment (scheduled tasks).
+#    The shared daemon hands its environment to every session it starts, but
+#    verified by experiment: while a stored login exists, the daemon starts
+#    WITHOUT the token and the sessions use the stored login; only without a
+#    stored login does the daemon keep it. So for sessions the token is
+#    useless as long as the stored login is there.
 
 AUTH_ENV_FILE="$HOME/.config/environment.d/claude.conf"
 AUTH_WARN_DAYS=7
@@ -90,7 +93,7 @@ status_auth() {
   printf '  %-22s %s\n' "Sessions run on:" "$runs_on"
 
   if [ "$A_TOKEN_FILE" = 1 ]; then
-    printf '  %-22s %s\n' "Token file:" "present, $A_TOKEN_AGE_DAYS days old (valid 1 year)"
+    printf '  %-22s %s\n' "Token file:" "present, $A_TOKEN_AGE_DAYS days old (valid 1 year, used by scheduled tasks)"
   else
     printf '  %-22s %s\n' "Token file:" "not set up"
   fi
@@ -116,17 +119,19 @@ auth_hints() {
   if [ "$A_RECENT_FAILS" -gt 0 ] 2>/dev/null; then
     log_warn "authentication is failing for task(s):$A_FAILING_TASKS. Renew it (claudissimo auth), then restart the sessions (claudissimo auth restart) — a renewed login does not reach sessions that are already running."
   fi
-  if [ "$A_TOKEN_FILE" = 1 ] && [ "$A_DAEMON_TOKEN" = "no" ]; then
-    log_warn "a token is set up, but the running daemon was started without it, so the sessions still use the stored login. Run: claudissimo auth restart"
+  if [ "$A_TOKEN_FILE" = 1 ] && [ "$A_DAEMON_TOKEN" = "no" ] && [ "$A_LOGGED_IN" = true ]; then
+    log_info "note: the token only protects scheduled tasks. While a stored login exists the daemon starts without it, so the sessions depend on the stored login above."
   fi
   if [ "$A_DAEMON_TOKEN" != "yes" ]; then
+    local covers="sessions and scheduled tasks stop working"
+    [ "$A_TOKEN_FILE" = 1 ] && covers="sessions stop working (scheduled tasks keep running on the token)"
     if [ "$A_LOGGED_IN" != true ]; then
-      log_warn "not logged in at all. Run: claudissimo auth"
+      log_warn "not logged in. Run: claude auth login, then: claudissimo auth restart"
     elif [ -n "$A_LOGIN_DAYS" ] && [ "$A_LOGIN_DAYS" -le "$AUTH_WARN_DAYS" ]; then
-      log_warn "the stored login runs out in $A_LOGIN_DAYS day(s) and cannot be renewed; after that sessions and tasks stop working. Run: claudissimo auth (sets up a 1-year token)"
+      log_warn "the stored login runs out in $A_LOGIN_DAYS day(s) and cannot be renewed; after that $covers. Sign in again with: claude auth login — then restart the sessions: claudissimo auth restart"
     fi
   fi
-  if [ "$A_DAEMON_TOKEN" = "yes" ] && [ -n "$A_TOKEN_AGE_DAYS" ] && [ "$A_TOKEN_AGE_DAYS" -ge 335 ]; then
+  if [ "$A_TOKEN_FILE" = 1 ] && [ -n "$A_TOKEN_AGE_DAYS" ] && [ "$A_TOKEN_AGE_DAYS" -ge 335 ]; then
     log_warn "the token is $A_TOKEN_AGE_DAYS days old and valid for 1 year. Renew it: claudissimo auth"
   fi
 }
@@ -136,8 +141,9 @@ auth_hints() {
 # file only the user can read. It is never echoed, logged or put on a command line.
 auth_set_token() {
   log_info "=== Set up a 1-year token ==="
-  log_info "Sessions and scheduled tasks then no longer depend on the stored login,"
-  log_info "which has a hard time limit (about 4 weeks) and cannot be renewed."
+  log_info "Scheduled tasks then no longer depend on the stored login, which has a hard"
+  log_info "time limit (about 4 weeks) and cannot be renewed. Background sessions do"
+  log_info "NOT use the token while a stored login exists (the daemon drops it)."
   log_info ""
   local reply
   read -r -p "Run 'claude setup-token' now? It opens a sign-in and prints the token once. [Y/n] " reply
@@ -174,15 +180,9 @@ auth_set_token() {
   mv "$AUTH_ENV_FILE.new" "$AUTH_ENV_FILE"
   token=""
   log_ok "token works and is stored in $AUTH_ENV_FILE (readable by you only)"
-  log_info "It reaches new systemd services after the next reboot; the revive script also"
-  log_info "loads it itself, so sessions started by it get it right away."
-  log_info ""
-  read -r -p "Restart the sessions now so they use it? [y/N] " reply
-  if [[ "$reply" =~ ^[Yy]$ ]]; then
-    auth_restart_sessions
-  else
-    log_info "Later: claudissimo auth restart"
-  fi
+  log_info "Scheduled tasks use it from the next systemd user start on (already the case"
+  log_info "since the last reboot if the file existed then). The sessions still run on the"
+  log_info "stored login — keep an eye on its expiry: claudissimo status auth"
 }
 
 # Stops the shared daemon (which ends all background sessions, their
