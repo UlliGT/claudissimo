@@ -12,9 +12,6 @@ revive_script_content() {
 #!/bin/bash
 sleep 20
 export PATH=$HOME/.local/bin:/usr/bin:/bin
-# a 1-year token (see `claudissimo auth`), if set up: the daemon started below hands its
-# environment to every session, so it has to be in ours (parsed, not sourced)
-token_line="$(grep -m1 '^CLAUDE_CODE_OAUTH_TOKEN=' "$HOME/.config/environment.d/claude.conf" 2>/dev/null)" && export "$token_line"
 claude agents --json --all | jq -r '.[] | "\(.id) \(.pid // 0)"' | while read -r id pid; do
   if [ "$pid" -gt 0 ] && grep -qa claude "/proc/$pid/cmdline" 2>/dev/null; then
     echo "$id already running (pid $pid)"

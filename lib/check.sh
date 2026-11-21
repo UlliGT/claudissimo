@@ -35,20 +35,12 @@ action_check() {
   if [ "$A_RECENT_FAILS" -gt 0 ] 2>/dev/null; then
     crit+=("authentication failed in last run of task(s):$A_FAILING_TASKS")
   fi
-  if [ "$A_DAEMON_TOKEN" = "yes" ]; then
-    if [ -n "$A_TOKEN_AGE_DAYS" ] && [ "$A_TOKEN_AGE_DAYS" -ge 365 ]; then
-      crit+=("token is $A_TOKEN_AGE_DAYS days old (valid 1 year)")
-    elif [ -n "$A_TOKEN_AGE_DAYS" ] && [ "$A_TOKEN_AGE_DAYS" -ge 335 ]; then
-      warn+=("token is $A_TOKEN_AGE_DAYS days old (valid 1 year)")
-    fi
-  else
-    if [ "$A_LOGGED_IN" != true ]; then
-      crit+=("not logged in")
-    elif [ -n "$A_LOGIN_DAYS" ] && [ "$A_LOGIN_DAYS" -lt 0 ]; then
-      crit+=("stored login expired")
-    elif [ -n "$A_LOGIN_DAYS" ] && [ "$A_LOGIN_DAYS" -le "$AUTH_WARN_DAYS" ]; then
-      warn+=("stored login expires in $A_LOGIN_DAYS day(s); sign in again (claude auth login) and run: claudissimo auth restart")
-    fi
+  if [ "$A_LOGGED_IN" != true ]; then
+    crit+=("not logged in")
+  elif [ -n "$A_LOGIN_DAYS" ] && [ "$A_LOGIN_DAYS" -lt 0 ]; then
+    crit+=("login expired")
+  elif [ -n "$A_LOGIN_DAYS" ] && [ "$A_LOGIN_DAYS" -le "$AUTH_WARN_DAYS" ]; then
+    warn+=("login expires in $A_LOGIN_DAYS day(s); sign in again (claudissimo auth login)")
   fi
   if [ "$probe" = 1 ] && ! auth_probe; then
     crit+=("authentication probe failed")
@@ -69,7 +61,7 @@ action_check() {
     fi
   done < <(list_task_names)
 
-  local perf="sessions=$total sessions_dead=$dead login_days=${A_LOGIN_DAYS:-U} token_age_days=${A_TOKEN_AGE_DAYS:-U} auth_failures=$A_RECENT_FAILS"
+  local perf="sessions=$total sessions_dead=$dead login_days=${A_LOGIN_DAYS:-U} auth_failures=$A_RECENT_FAILS"
   local msg code label
   if [ "${#crit[@]}" -gt 0 ]; then
     code=2; label="CRITICAL"
@@ -79,9 +71,7 @@ action_check() {
     msg="$(IFS=';'; echo "${warn[*]}")"
   else
     code=0; label="OK"
-    local mode="stored login"
-    [ "$A_DAEMON_TOKEN" = "yes" ] && mode="token"
-    msg="$total sessions alive, auth via $mode"
+    msg="$total sessions alive, login valid for ${A_LOGIN_DAYS:-?} days"
   fi
   printf 'claudissimo %s - %s | %s\n' "$label" "$msg" "$perf"
   return "$code"

@@ -1,44 +1,23 @@
 #!/usr/bin/env bash
-# Authentication: what the background sessions run on, how long it lasts,
-# and how to renew it. Shared by `status auth`, `check` and `auth`.
+# Authentication: how long the login lasts and how to renew it. Shared by
+# `status auth`, `check` and `auth`.
 #
-# Two ways a session can be authenticated, learned the hard way:
-#  - the stored claude.ai login (~/.claude/.credentials.json): hard time
-#    limit (about 4 weeks), cannot be renewed, sessions then keep running
-#    but are useless, and a re-login does not reach processes already running
-#  - a 1-year token (`claude setup-token`) in CLAUDE_CODE_OAUTH_TOKEN: used
-#    by `claude -p` runs that have it in their environment (scheduled tasks).
-#    The shared daemon hands its environment to every session it starts, but
-#    verified by experiment: while a stored login exists, the daemon starts
-#    WITHOUT the token and the sessions use the stored login; only without a
-#    stored login does the daemon keep it. So for sessions the token is
-#    useless as long as the stored login is there.
+# Learned the hard way: the stored claude.ai login has a hard time limit
+# (about 4 weeks) and cannot be renewed. When it runs out, sessions keep
+# running but are useless, and a re-login does not reach processes that are
+# already running — the revive script skips them because their pid is alive.
+# They only recover after the daemon is restarted. A 1-year token
+# (`claude setup-token`) was tried and dropped: while a stored login exists
+# the daemon starts without it, and a token-only session did not show up
+# under Remote Control.
 
-AUTH_ENV_FILE="$HOME/.config/environment.d/claude.conf"
 AUTH_WARN_DAYS=7
 AUTH_FAIL_WINDOW="2 days ago"
 
 # Fills A_* globals. Read-only, no API calls.
 auth_collect() {
-  A_TOKEN_FILE=0; A_TOKEN_AGE_DAYS=""
-  if [ -f "$AUTH_ENV_FILE" ] && grep -q '^CLAUDE_CODE_OAUTH_TOKEN=' "$AUTH_ENV_FILE" 2>/dev/null; then
-    A_TOKEN_FILE=1
-    A_TOKEN_AGE_DAYS=$(( ( $(date +%s) - $(stat -c %Y "$AUTH_ENV_FILE") ) / 86400 ))
-  fi
-
-  A_DAEMON_PID="$(claude daemon status 2>/dev/null | awk '/^pid:/ {print $2}')"
-  A_DAEMON_TOKEN="unknown"   # yes | no | unknown (daemon not running)
-  if [ -n "$A_DAEMON_PID" ] && [ -r "/proc/$A_DAEMON_PID/environ" ]; then
-    if tr '\0' '\n' < "/proc/$A_DAEMON_PID/environ" | grep -q '^CLAUDE_CODE_OAUTH_TOKEN='; then
-      A_DAEMON_TOKEN="yes"
-    else
-      A_DAEMON_TOKEN="no"
-    fi
-  fi
-
-  # Stored login, looked at without the token so its own expiry shows.
   local js
-  js="$(env -u CLAUDE_CODE_OAUTH_TOKEN claude auth status 2>/dev/null || true)"
+  js="$(claude auth status 2>/dev/null || true)"
   A_LOGGED_IN="$(jq -r '.loggedIn // false' <<< "$js" 2>/dev/null || echo false)"
   A_LOGIN_EXPIRES="$(jq -r '.loginExpiresAt // empty' <<< "$js" 2>/dev/null || true)"
   A_LOGIN_DAYS=""
@@ -63,20 +42,11 @@ auth_collect() {
   done < <(list_task_names)
 }
 
-# Real end-to-end probe: one tiny request with the credentials the sessions
-# actually use (token if the daemon has it, otherwise the stored login),
-# whatever this shell's own environment looks like. Costs a request, so only
-# on demand. The token goes into a subshell's environment, never an argv.
+# Real end-to-end probe: one tiny request, the way a fresh service would
+# authenticate. Costs a request, so only on demand.
 auth_probe() {
-  local out line
-  out="$(
-    if [ "$A_DAEMON_TOKEN" = "yes" ] && line="$(grep -m1 '^CLAUDE_CODE_OAUTH_TOKEN=' "$AUTH_ENV_FILE" 2>/dev/null)"; then
-      export "$line"
-    else
-      unset CLAUDE_CODE_OAUTH_TOKEN
-    fi
-    timeout 90 claude -p "Reply with exactly: ok" 2>&1 </dev/null || true
-  )"
+  local out
+  out="$(timeout 90 claude -p "Reply with exactly: ok" 2>&1 </dev/null || true)"
   [[ "$out" == *ok* ]] && [[ "$out" != *"Not logged in"* ]] && [[ "$out" != *"Failed to authenticate"* ]]
 }
 
@@ -84,28 +54,13 @@ status_auth() {
   log_info "=== Authentication ==="
   auth_collect
 
-  local runs_on
-  case "$A_DAEMON_TOKEN" in
-    yes) runs_on="1-year token" ;;
-    no)  runs_on="stored claude.ai login" ;;
-    *)   runs_on="unknown (daemon not running)" ;;
-  esac
-  printf '  %-22s %s\n' "Sessions run on:" "$runs_on"
-
-  if [ "$A_TOKEN_FILE" = 1 ]; then
-    printf '  %-22s %s\n' "Token file:" "present, $A_TOKEN_AGE_DAYS days old (valid 1 year, used by scheduled tasks)"
-  else
-    printf '  %-22s %s\n' "Token file:" "not set up"
-  fi
-
   if [ "$A_LOGGED_IN" = true ] && [ -n "$A_LOGIN_DAYS" ]; then
-    printf '  %-22s %s\n' "Stored login:" "expires ${A_LOGIN_EXPIRES%%T*} ($A_LOGIN_DAYS days)"
+    printf '  %-22s %s\n' "Login:" "expires ${A_LOGIN_EXPIRES%%T*} ($A_LOGIN_DAYS days)"
   elif [ "$A_LOGGED_IN" = true ]; then
-    printf '  %-22s %s\n' "Stored login:" "logged in, no expiry reported"
+    printf '  %-22s %s\n' "Login:" "logged in, no expiry reported"
   else
-    printf '  %-22s %s\n' "Stored login:" "not logged in"
+    printf '  %-22s %s\n' "Login:" "not logged in"
   fi
-
   if [ "$A_RECENT_FAILS" -gt 0 ] 2>/dev/null; then
     printf '  %-22s %s\n' "Task auth failures:" "last run failed to authenticate:$A_FAILING_TASKS"
   else
@@ -117,80 +72,35 @@ status_auth() {
 
 auth_hints() {
   if [ "$A_RECENT_FAILS" -gt 0 ] 2>/dev/null; then
-    log_warn "authentication is failing for task(s):$A_FAILING_TASKS. Renew it (claudissimo auth), then restart the sessions (claudissimo auth restart) — a renewed login does not reach sessions that are already running."
-  fi
-  if [ "$A_TOKEN_FILE" = 1 ] && [ "$A_DAEMON_TOKEN" = "no" ] && [ "$A_LOGGED_IN" = true ]; then
-    log_info "note: the token only protects scheduled tasks. While a stored login exists the daemon starts without it, so the sessions depend on the stored login above."
-  fi
-  if [ "$A_DAEMON_TOKEN" != "yes" ]; then
-    local covers="sessions and scheduled tasks stop working"
-    [ "$A_TOKEN_FILE" = 1 ] && covers="sessions stop working (scheduled tasks keep running on the token)"
-    if [ "$A_LOGGED_IN" != true ]; then
-      log_warn "not logged in. Run: claude auth login, then: claudissimo auth restart"
-    elif [ -n "$A_LOGIN_DAYS" ] && [ "$A_LOGIN_DAYS" -le "$AUTH_WARN_DAYS" ]; then
-      log_warn "the stored login runs out in $A_LOGIN_DAYS day(s) and cannot be renewed; after that $covers. Sign in again with: claude auth login — then restart the sessions: claudissimo auth restart"
-    fi
-  fi
-  if [ "$A_TOKEN_FILE" = 1 ] && [ -n "$A_TOKEN_AGE_DAYS" ] && [ "$A_TOKEN_AGE_DAYS" -ge 335 ]; then
-    log_warn "the token is $A_TOKEN_AGE_DAYS days old and valid for 1 year. Renew it: claudissimo auth"
+    log_warn "authentication is failing for task(s):$A_FAILING_TASKS. Sign in again (claudissimo auth login), then restart the sessions (claudissimo auth restart)."
+  elif [ "$A_LOGGED_IN" != true ]; then
+    log_warn "not logged in. Run: claudissimo auth login"
+  elif [ -n "$A_LOGIN_DAYS" ] && [ "$A_LOGIN_DAYS" -le "$AUTH_WARN_DAYS" ]; then
+    log_warn "the login runs out in $A_LOGIN_DAYS day(s) and cannot be renewed; after that sessions and scheduled tasks stop working. Sign in again: claudissimo auth login"
   fi
 }
 
-# Sets up (or replaces) the 1-year token. The token is typed in by the user,
-# checked with a real request against an empty config dir, and written to a
-# file only the user can read. It is never echoed, logged or put on a command line.
-auth_set_token() {
-  log_info "=== Set up a 1-year token ==="
-  log_info "Scheduled tasks then no longer depend on the stored login, which has a hard"
-  log_info "time limit (about 4 weeks) and cannot be renewed. Background sessions do"
-  log_info "NOT use the token while a stored login exists (the daemon drops it)."
-  log_info ""
+# Signs in again, then offers the restart the running sessions need.
+auth_login() {
+  log_info "=== Sign in again ==="
+  claude auth login || { log_err "claude auth login failed"; return 1; }
+  log_ok "signed in"
+  log_info "Sessions that are already running keep their old, possibly expired credentials."
   local reply
-  read -r -p "Run 'claude setup-token' now? It opens a sign-in and prints the token once. [Y/n] " reply
-  if [[ ! "$reply" =~ ^[Nn]$ ]]; then
-    claude setup-token || { log_err "claude setup-token failed"; return 1; }
+  read -r -p "Restart the sessions now so they use the new login? [y/N] " reply
+  if [[ "$reply" =~ ^[Yy]$ ]]; then
+    auth_restart_sessions
+  else
+    log_info "Later: claudissimo auth restart"
   fi
-
-  local token
-  read -rs -p "Paste the token (starts with sk-ant-oat01-, input is hidden, empty to cancel): " token
-  printf '\n'
-  token="${token//[[:space:]]/}"
-  if [ -z "$token" ]; then
-    log_skip "cancelled"
-    return 0
-  fi
-  if ! [[ "$token" =~ ^sk-ant-oat01-[A-Za-z0-9_-]{40,}$ ]]; then
-    log_err "that doesn't look like a token (expected sk-ant-oat01-…, about 108 characters). Note the code from the sign-in page is not the token — the token is printed afterwards."
-    return 1
-  fi
-
-  log_info "checking the token with a real request…"
-  local tmp out
-  tmp="$(mktemp -d)"
-  out="$(CLAUDE_CONFIG_DIR="$tmp" CLAUDE_CODE_OAUTH_TOKEN="$token" timeout 90 claude -p "Reply with exactly: ok" 2>&1 </dev/null || true)"
-  rm -rf "$tmp"
-  if [[ "$out" != *ok* ]] || [[ "$out" == *"Not logged in"* ]]; then
-    log_err "the token was rejected — nothing was written."
-    return 1
-  fi
-
-  mkdir -p "$(dirname "$AUTH_ENV_FILE")"
-  ( umask 077; printf 'CLAUDE_CODE_OAUTH_TOKEN=%s\n' "$token" > "$AUTH_ENV_FILE.new" )
-  chmod 600 "$AUTH_ENV_FILE.new"
-  mv "$AUTH_ENV_FILE.new" "$AUTH_ENV_FILE"
-  token=""
-  log_ok "token works and is stored in $AUTH_ENV_FILE (readable by you only)"
-  log_info "Scheduled tasks use it from the next systemd user start on (already the case"
-  log_info "since the last reboot if the file existed then). The sessions still run on the"
-  log_info "stored login — keep an eye on its expiry: claudissimo status auth"
 }
 
 # Stops the shared daemon (which ends all background sessions, their
 # conversations are kept) and lets the revive script bring everything back
-# with the current credentials. A plain `claude respawn` is not enough: the
-# new process inherits the old daemon's environment.
+# with the current login. A plain `claude respawn` is not enough: the new
+# process inherits the old daemon's state.
 auth_restart_sessions() {
-  log_info "=== Restart sessions with current credentials ==="
+  log_info "=== Restart sessions with the current login ==="
   if [ -n "${CLAUDE_JOB_DIR:-}" ]; then
     log_err "this is running inside a Claude background session — restarting would end this very session. Run it from a normal SSH terminal."
     return 1
@@ -216,25 +126,25 @@ auth_restart_sessions() {
 
 action_auth() {
   case "${1:-}" in
-    token)   auth_set_token ;;
+    login)   auth_login ;;
     restart) auth_restart_sessions ;;
     "")
       status_auth
       while true; do
         printf '\nAuthentication\n'
-        printf '  1) Set up or replace the 1-year token\n'
-        printf '  2) Restart sessions with the current credentials\n'
+        printf '  1) Sign in again (claude auth login)\n'
+        printf '  2) Restart sessions with the current login\n'
         printf '  b) Back\n'
         local choice
         read -r -p 'Choose: ' choice
         case "$choice" in
-          1) auth_set_token ;;
+          1) auth_login ;;
           2) auth_restart_sessions ;;
           b|B) break ;;
           *) log_warn "unknown choice: $choice" ;;
         esac
       done
       ;;
-    *) log_err "unknown auth target: $1 (expected: token|restart)"; return 1 ;;
+    *) log_err "unknown auth target: $1 (expected: login|restart)"; return 1 ;;
   esac
 }
