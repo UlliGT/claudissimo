@@ -2,6 +2,11 @@
 # Monitoring check: one line, Nagios-style exit codes (0 OK, 1 WARNING,
 # 2 CRITICAL). Read-only; makes no API request unless --probe is given.
 
+# Dead sessions are given this long to come back (revive timer ~16 min plus a
+# push interval); a previous check older than the window means we can't tell.
+CHECK_DEAD_GRACE=1500
+CHECK_CONTINUOUS_WINDOW=1800
+
 action_check() {
   local probe=0 push=0 arg
   for arg in "$@"; do
@@ -17,7 +22,24 @@ action_check() {
   source "$LIB_DIR/tasks.sh"
 
   # Sessions: alive means a running claude process behind the pid.
-  local total=0 dead=0 dead_names="" agents_json id name pid started
+  # A session that is dead is normal for a while: the daemon retires sessions
+  # that were idle for 8 hours, and the revive timer (every ~16 min) brings
+  # them back. So a dead session only counts once it has stayed dead longer
+  # than that. "Since when" comes from our own state, which is only
+  # trustworthy if the previous check was recent (monitoring pushes every few
+  # minutes); otherwise a dead session is reported at once.
+  local state_dir="${CLAUDISSIMO_STATE_DIR:-$HOME/.local/state/claudissimo}"
+  local now; now="$(date +%s)"
+  local prev_check=0 continuous=0 sid first
+  declare -A dead_since=() still_dead=()
+  mkdir -p "$state_dir"
+  [ -f "$state_dir/last_check" ] && read -r prev_check < "$state_dir/last_check" || true
+  [ $((now - ${prev_check:-0})) -le "$CHECK_CONTINUOUS_WINDOW" ] && continuous=1
+  if [ -f "$state_dir/dead_since" ]; then
+    while read -r sid first; do [ -n "$sid" ] && dead_since[$sid]="$first"; done < "$state_dir/dead_since"
+  fi
+
+  local total=0 dead=0 restarting=0 dead_names="" restarting_names="" agents_json id name pid started
   if ! agents_json="$(claude agents --json --all 2>/dev/null)" || ! jq -e 'type == "array"' <<< "$agents_json" >/dev/null 2>&1; then
     warn+=("could not list sessions (claude agents failed)")
     agents_json='[]'
@@ -27,12 +49,26 @@ action_check() {
     total=$((total + 1))
     if ! is_claude_pid_alive "$pid"; then
       # a session started in the last two minutes may not have its pid yet
-      if [ -n "$started" ] && [ $(( $(date +%s) - started / 1000 )) -lt 120 ]; then
+      if [ -n "$started" ] && [ $((now - started / 1000)) -lt 120 ]; then
         continue
       fi
-      dead=$((dead + 1)); dead_names="$dead_names $name"
+      if [ "$continuous" = 1 ]; then
+        first="${dead_since[$id]:-$now}"
+      else
+        first=0
+
+      fi
+      still_dead[$id]="$first"
+      if [ "$first" -gt 0 ] && [ $((now - first)) -lt "$CHECK_DEAD_GRACE" ]; then
+        restarting=$((restarting + 1)); restarting_names="$restarting_names $name"
+      else
+        dead=$((dead + 1)); dead_names="$dead_names $name"
+      fi
     fi
   done < <(jq -r '.[] | [.id, .name, (.pid // 0), (.startedAt // 0)] | @tsv' <<< "$agents_json" 2>/dev/null)
+  : > "$state_dir/dead_since"
+  for sid in "${!still_dead[@]}"; do printf '%s %s\n' "$sid" "${still_dead[$sid]}" >> "$state_dir/dead_since"; done
+  printf '%s\n' "$now" > "$state_dir/last_check"
   [ "$dead" -gt 0 ] && crit+=("$dead of $total sessions not running:$dead_names")
   if [ "$total" -eq 0 ] && [ "${#warn[@]}" -eq 0 ]; then
     warn+=("no background sessions at all")
@@ -57,9 +93,7 @@ action_check() {
   # The real request: always with --probe; with --push at most once an hour
   # (and again on every push while the last one failed), otherwise a push
   # every few minutes would cost a request each time.
-  local state_dir="${CLAUDISSIMO_STATE_DIR:-$HOME/.local/state/claudissimo}"
-  local state_file="$state_dir/probe" last_at=0 last_ok=0 now
-  now="$(date +%s)"
+  local state_file="$state_dir/probe" last_at=0 last_ok=0
   [ -f "$state_file" ] && read -r last_at last_ok < "$state_file" || true
   if [ "$probe" = 1 ] || { [ "$push" = 1 ] && { [ "$last_ok" != 1 ] || [ $((now - last_at)) -ge 3600 ]; }; }; then
     mkdir -p "$state_dir"
@@ -87,7 +121,7 @@ action_check() {
     fi
   done < <(list_task_names)
 
-  local perf="sessions=$total sessions_dead=$dead login_days=${A_LOGIN_DAYS:-U} auth_failures=$A_RECENT_FAILS"
+  local perf="sessions=$total sessions_dead=$dead sessions_restarting=$restarting login_days=${A_LOGIN_DAYS:-U} auth_failures=$A_RECENT_FAILS"
   local msg code label
   if [ "${#crit[@]}" -gt 0 ]; then
     code=2; label="CRITICAL"
@@ -98,6 +132,7 @@ action_check() {
   else
     code=0; label="OK"
     msg="$total sessions alive, login valid for ${A_LOGIN_DAYS:-?} days"
+    [ "$restarting" -gt 0 ] && msg="$total sessions, $restarting restarting (idle-retired, the revive timer brings them back):$restarting_names; login valid for ${A_LOGIN_DAYS:-?} days"
   fi
   printf 'claudissimo %s - %s | %s\n' "$label" "$msg" "$perf"
   if [ "$push" = 1 ]; then

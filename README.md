@@ -178,7 +178,11 @@ curses UI, output stays in your normal scrollback:
 11. **Check** — For your monitoring: one line, Nagios-style exit code (0
     OK, 1 WARNING, 2 CRITICAL) plus performance data, e.g. `claudissimo
     OK - 7 sessions alive, login valid for 27 days | sessions=7 …`.
-    Critical: a session whose pid has no running claude process, the
+    Critical: a session whose pid has no running claude process for more
+    than 25 minutes (the daemon retires sessions that were idle for 8
+    hours and the revive timer brings them back within about 16 minutes;
+    shorter gaps only show as "restarting" and stay OK, and without a
+    recent previous check a dead session is reported at once), the
     revive timer is not active, not logged in or the login expired, a
     scheduled task whose last run failed to authenticate, a failed probe
     request. Warning: the login expires within 7 days, a scheduled
