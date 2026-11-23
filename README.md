@@ -59,7 +59,7 @@ curses UI, output stays in your normal scrollback:
    daemon it starts — but that also makes a timer-triggered `systemctl
    start` on it a silent no-op once it's "active (exited)", confirmed the
    hard way, hence the separate service), and a **systemd timer that runs
-   that second service every 15 minutes** (not just at boot — Claude
+   that second service every 5 minutes** (not just at boot — Claude
    Code's own supervisor can stop an idle or memory-pressured session
    mid-uptime; see
    [agent-view.md](https://code.claude.com/docs/en/agent-view.md)). Also
@@ -179,8 +179,8 @@ curses UI, output stays in your normal scrollback:
     OK, 1 WARNING, 2 CRITICAL) plus performance data, e.g. `claudissimo
     OK - 7 sessions alive, login valid for 27 days | sessions=7 …`.
     Critical: a session whose pid has no running claude process for more
-    than 25 minutes (the daemon retires sessions that were idle for 8
-    hours and the revive timer brings them back within about 16 minutes;
+    than 15 minutes (the daemon retires sessions that were idle for 8
+    hours and the revive timer brings them back within about 6 minutes;
     shorter gaps only show as "restarting" and stay OK, and without a
     recent previous check a dead session is reported at once), the
     revive timer is not active, not logged in or the login expired, a

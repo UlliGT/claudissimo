@@ -90,7 +90,7 @@ This tool has twelve actions:
               `systemctl start` on it is a no-op, proven the hard way
             - writes and starts
               ~/.config/systemd/user/claude-agents.timer: runs that
-              second service every 15 minutes, not just at boot — a
+              second service every 5 minutes, not just at boot — a
               session can get stopped mid-uptime by Claude Code's own
               supervisor (idle for about an hour unattended, or sooner
               under memory pressure — see code.claude.com/docs/en/
@@ -224,9 +224,9 @@ This tool has twelve actions:
           1 WARNING, 2 CRITICAL) plus performance data, e.g.
           `claudissimo OK - 7 sessions alive, login valid for 27 days
           | sessions=7 …`. Critical: a session whose pid has no
-          running claude process for more than 25 minutes (the daemon
+          running claude process for more than 15 minutes (the daemon
           retires sessions that were idle for 8 hours and the revive
-          timer brings them back within about 16 minutes; shorter gaps
+          timer brings them back within about 6 minutes; shorter gaps
           only show as "restarting" and stay OK, and without a recent
           previous check a dead session is reported at once), the
           revive timer is not active, not logged in or the login
@@ -321,7 +321,7 @@ status_menu() {
     printf '  1) Projects overview\n'
     printf '  2) Background sessions\n'
     printf '  3) Revive service (boot)\n'
-    printf '  4) Revive timer (every 15 min)\n'
+    printf '  4) Revive timer (every 5 min)\n'
     printf '  5) Authentication (login expiry, sign in again)\n'
     printf '  6) Memory\n'
     printf '  7) Versions (what update can refresh)\n'
@@ -376,7 +376,7 @@ Initial setup will do the following on this machine:
   - create and enable ~/.config/systemd/user/claude-agents.service
   - create ~/.config/systemd/user/claude-agents-revive.service
   - create and start ~/.config/systemd/user/claude-agents.timer (re-checks
-    every 15 min, not just at boot)
+    every 5 min, not just at boot)
   - enable linger for your user account — asks for sudo
   - create ~/claude-projects if it doesn't exist yet
   - check (not change) GitHub SSH connectivity

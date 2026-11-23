@@ -2,9 +2,9 @@
 # Monitoring check: one line, Nagios-style exit codes (0 OK, 1 WARNING,
 # 2 CRITICAL). Read-only; makes no API request unless --probe is given.
 
-# Dead sessions are given this long to come back (revive timer ~16 min plus a
+# Dead sessions are given this long to come back (revive timer ~6 min plus a
 # push interval); a previous check older than the window means we can't tell.
-CHECK_DEAD_GRACE=1500
+CHECK_DEAD_GRACE=900
 CHECK_CONTINUOUS_WINDOW=1800
 
 action_check() {
@@ -23,7 +23,7 @@ action_check() {
 
   # Sessions: alive means a running claude process behind the pid.
   # A session that is dead is normal for a while: the daemon retires sessions
-  # that were idle for 8 hours, and the revive timer (every ~16 min) brings
+  # that were idle for 8 hours, and the revive timer (every ~6 min) brings
   # them back. So a dead session only counts once it has stayed dead longer
   # than that. "Since when" comes from our own state, which is only
   # trustworthy if the previous check was recent (monitoring pushes every few
@@ -117,7 +117,7 @@ action_check() {
     fi
     next="$(systemctl --user list-timers "$timer_unit" --no-pager 2>/dev/null | awk 'NR==2 {print $1}')"
     if [ "$next" = "-" ] && ! unit_is_running "$service_unit"; then
-      warn+=("task '$task': timer has no next run (the revive timer fixes this within 15 min)")
+      warn+=("task '$task': timer has no next run (the revive timer fixes this within 5 min)")
     fi
   done < <(list_task_names)
 

@@ -58,7 +58,7 @@ Description=Periodically check for and revive dead Claude Code background sessio
 
 [Timer]
 OnBootSec=2min
-OnUnitActiveSec=15min
+OnUnitActiveSec=5min
 Unit=claude-agents-revive.service
 
 [Install]
@@ -167,7 +167,7 @@ action_setup() {
     log_skip "claude-agents.timer already running"
   else
     systemctl --user enable --now claude-agents.timer
-    log_ok "enabled and started claude-agents.timer (checks every 15 min)"
+    log_ok "enabled and started claude-agents.timer (checks every 5 min)"
   fi
 
   log_info "--- Linger (keep user services running without an active login) ---"
